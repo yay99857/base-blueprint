@@ -1,3 +1,5 @@
+<p align="center"><img src="src/main/resources/baseblueprint_logo.png" width="128" alt="Base Blueprint"></p>
+
 # Planta de Base (Base Blueprint)
 
 Mod para **Minecraft 1.21.1 (NeoForge)**. Um item de early game que constrói a base de uma vez:
