@@ -47,8 +47,10 @@ public class BlueprintItem extends Item {
             Block block = level.getBlockState(ctx.getClickedPos()).getBlock();
             if (!level.isClientSide) {
                 if (BaseBuilder.isValidMaterial(block)) {
-                    stack.set(ModComponents.MATERIAL.get(), block);
-                    player.displayClientMessage(Component.translatable("message.baseblueprint.material_set", block.getName())
+                    boolean walls = BaseBuilder.settings(stack).pick() == BlueprintSettings.Pick.WALLS;
+                    stack.set(walls ? ModComponents.WALL_MATERIAL.get() : ModComponents.MATERIAL.get(), block);
+                    player.displayClientMessage(Component.translatable(walls ? "message.baseblueprint.wall_material_set"
+                                    : "message.baseblueprint.material_set", block.getName())
                             .withStyle(ChatFormatting.AQUA), true);
                 } else {
                     player.displayClientMessage(Component.translatable("message.baseblueprint.invalid_material", block.getName())
@@ -75,6 +77,16 @@ public class BlueprintItem extends Item {
         tooltip.add(material != null
                 ? Component.translatable("tooltip.baseblueprint.material", material.getName()).withStyle(ChatFormatting.AQUA)
                 : Component.translatable("tooltip.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW));
+        Block walls = stack.get(ModComponents.WALL_MATERIAL.get());
+        if (walls != null) {
+            tooltip.add(Component.translatable("tooltip.baseblueprint.wall_material", walls.getName()).withStyle(ChatFormatting.AQUA));
+        }
+        if (s.door() || s.effectiveRoof() != BlueprintSettings.Roof.NONE || s.foundation()) {
+            tooltip.add(Component.translatable("tooltip.baseblueprint.extras",
+                    Component.translatable(s.door() ? "options.on" : "options.off"),
+                    Component.translatable("roof.baseblueprint." + s.effectiveRoof().getSerializedName()),
+                    Component.translatable(s.foundation() ? "options.on" : "options.off")).withStyle(ChatFormatting.GRAY));
+        }
         for (String line : new String[]{"build", "menu", "pick", "offhand", "undo"}) {
             tooltip.add(Component.translatable("tooltip.baseblueprint.help." + line).withStyle(ChatFormatting.DARK_GRAY));
         }

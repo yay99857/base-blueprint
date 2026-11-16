@@ -25,7 +25,7 @@ import java.util.function.IntSupplier;
 /** Shape, size, floor and wall menu, with a pixel preview of the footprint like a pixel circle generator. */
 public class BlueprintScreen extends Screen {
     private static final int PANEL_W = 300;
-    private static final int PANEL_H = 214;
+    private static final int PANEL_H = 318;
     private static final int GRID = 128;
     private static final int ROW = 22;
 
@@ -88,6 +88,28 @@ public class BlueprintScreen extends Screen {
         y += ROW;
         stepper(x, y, colW, "screen.baseblueprint.walls", () -> settings.wallHeight(),
                 v -> update(settings.withWallHeight(Mth.clamp(v, 0, BlueprintConfig.maxWallHeight()))));
+        y += ROW;
+        addRenderableWidget(CycleButton.onOffBuilder(settings.door())
+                .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.door"),
+                        (b, v) -> update(settings.withDoor(v))));
+        y += ROW;
+        addRenderableWidget(CycleButton.<BlueprintSettings.Roof>builder(r ->
+                        Component.translatable("roof.baseblueprint." + r.getSerializedName()))
+                .withValues(BlueprintSettings.Roof.values())
+                .withInitialValue(settings.roof())
+                .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.roof"),
+                        (b, v) -> update(settings.withRoof(v))));
+        y += ROW;
+        addRenderableWidget(CycleButton.onOffBuilder(settings.foundation())
+                .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.foundation"),
+                        (b, v) -> update(settings.withFoundation(v))));
+        y += ROW;
+        addRenderableWidget(CycleButton.<BlueprintSettings.Pick>builder(k ->
+                        Component.translatable("pick.baseblueprint." + k.getSerializedName()))
+                .withValues(BlueprintSettings.Pick.values())
+                .withInitialValue(settings.pick())
+                .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.pick"),
+                        (b, v) -> update(settings.withPick(v))));
 
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                 .bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 28, 100, 20).build());
@@ -132,23 +154,31 @@ public class BlueprintScreen extends Screen {
 
         Player player = minecraft == null ? null : minecraft.player;
         int need = shape.blockCount(settings);
-        int y = top + 24 + GRID + 6;
+        int y = top + 26 + ROW * 10 + 4;
         g.drawString(font, Component.translatable("screen.baseblueprint.size", settings.width(), settings.length()),
-                left + 10, y, 0xFFB8D4F0, false);
-        g.drawString(font, Component.translatable("screen.baseblueprint.blocks", need), left + 10, y + 11, 0xFFFFFFFF, false);
-        Block block = player == null ? null : BaseBuilder.material(player, heldStack());
-        Component materialLine;
-        if (block == null) {
-            materialLine = Component.translatable("screen.baseblueprint.no_material");
-            g.drawString(font, materialLine, left + GRID + 22, y + 11, 0xFFFFD866, false);
-        } else {
-            boolean creative = player.isCreative();
-            int have = BaseBuilder.countItem(player, block.asItem());
-            materialLine = creative
-                    ? Component.translatable("screen.baseblueprint.material_creative", block.getName())
-                    : Component.translatable("screen.baseblueprint.material", block.getName(), have, need);
-            g.drawString(font, materialLine, left + GRID + 22, y + 11, creative || have >= need ? 0xFF7CF08C : 0xFFFF7A6E, false);
+                left + 10, top + 24 + GRID + 6, 0xFFB8D4F0, false);
+        g.drawString(font, Component.translatable("screen.baseblueprint.blocks", need), left + 10, top + 24 + GRID + 17,
+                0xFFFFFFFF, false);
+        if (settings.roof() == BlueprintSettings.Roof.DOME && settings.shape() != BlueprintSettings.Shape.CIRCLE) {
+            g.drawString(font, Component.translatable("screen.baseblueprint.dome_circle_only"), left + 10, top + 24 + GRID + 28,
+                    0xFFFFD866, false);
         }
+        BaseBuilder.Materials materials = player == null ? new BaseBuilder.Materials(null, null)
+                : BaseBuilder.materials(player, heldStack());
+        if (materials.floor() == null) {
+            g.drawString(font, Component.translatable("screen.baseblueprint.no_material"), left + 10, y, 0xFFFFD866, false);
+            return;
+        }
+        drawMaterial(g, player, "screen.baseblueprint.material_floor", materials.floor(), left + 10, y);
+        drawMaterial(g, player, "screen.baseblueprint.material_walls", materials.walls(), left + 10, y + 11);
+    }
+
+    private void drawMaterial(GuiGraphics g, Player player, String key, Block block, int x, int y) {
+        boolean creative = player.isCreative();
+        int have = BaseBuilder.countItem(player, block.asItem());
+        Component line = Component.translatable(key, block.getName(),
+                creative ? Component.translatable("screen.baseblueprint.free") : Component.literal(String.valueOf(have)));
+        g.drawString(font, line, x, y, 0xFFE0E0E0, false);
     }
 
     private void renderGrid(GuiGraphics g, int gx, int gy) {
@@ -160,6 +190,16 @@ public class BlueprintScreen extends Screen {
         float oz = gy + (GRID - l * scale) / 2f;
         boolean walls = settings.wallHeight() > 0;
         int cx = w / 2, cz = l / 2;
+        // door cells: wall cells the shape leaves open on the south side (the preview's "towards you")
+        java.util.Set<Long> wallCells = new java.util.HashSet<>();
+        if (walls && settings.door()) {
+            for (BaseShape.Placement p : shape.placements(settings.withRoof(BlueprintSettings.Roof.NONE)
+                    .withFloor(BlueprintSettings.Floor.NONE).withWallHeight(1), net.minecraft.core.BlockPos.ZERO,
+                    net.minecraft.core.Direction.SOUTH)) {
+                wallCells.add(net.minecraft.core.BlockPos.asLong(p.pos().getX() - BaseShape.startX(settings, net.minecraft.core.BlockPos.ZERO),
+                        0, p.pos().getZ() - BaseShape.startZ(settings, net.minecraft.core.BlockPos.ZERO)));
+            }
+        }
 
         g.pose().pushPose();
         g.pose().translate(ox, oz, 0);
@@ -170,6 +210,8 @@ public class BlueprintScreen extends Screen {
                 boolean edge = shape.edge(x, z);
                 if (x == cx && z == cz) {
                     color = 0xFF5BE37A; // where you click
+                } else if (walls && edge && settings.door() && !wallCells.contains(net.minecraft.core.BlockPos.asLong(x, 0, z))) {
+                    color = 0xFF66CCFF; // doorway
                 } else if (walls && edge) {
                     color = 0xFFE59A3C;
                 } else if (settings.floor() == BlueprintSettings.Floor.FILLED && shape.filled(x, z)

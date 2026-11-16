@@ -23,6 +23,12 @@ public final class ModComponents {
                     .persistent(BuiltInRegistries.BLOCK.byNameCodec())
                     .networkSynchronized(ByteBufCodecs.registry(Registries.BLOCK)));
 
+    /** The wall and roof block picked with sneak + right-click while the menu's "Shift-click sets" is on walls. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Block>> WALL_MATERIAL =
+            COMPONENTS.registerComponentType("wall_material", b -> b
+                    .persistent(BuiltInRegistries.BLOCK.byNameCodec())
+                    .networkSynchronized(ByteBufCodecs.registry(Registries.BLOCK)));
+
     private ModComponents() {
     }
 }

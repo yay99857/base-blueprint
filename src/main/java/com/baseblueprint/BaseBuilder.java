@@ -4,7 +4,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -19,31 +19,49 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-/** Server side: works out what a blueprint would place, takes the blocks from the inventory and builds. */
+/**
+ * Server side: works out what a blueprint would place, takes the blocks from the player (inventory, containers
+ * carried in it such as backpacks, and containers nearby) and builds.
+ */
 public final class BaseBuilder {
-    /** Last base each player built, for undo. Memory only. */
-    private static final Map<UUID, LastBuild> LAST = new ConcurrentHashMap<>();
-
-    private record LastBuild(ResourceKey<Level> dimension, List<BlockPos> positions, Block block) {
+    /** One block to place. */
+    public record Placement(BlockPos pos, Block block, BaseShape.Part part) {
     }
 
     /** Positions that will get a block, and the ones where something solid is in the way. */
-    public record Plan(List<BlockPos> toPlace, List<BlockPos> blockedPositions) {
+    public record Plan(List<Placement> toPlace, List<BlockPos> blockedPositions) {
         public int blocked() {
             return blockedPositions.size();
+        }
+
+        /** How many of each block the plan needs. */
+        public Map<Block, Integer> needs() {
+            Map<Block, Integer> needs = new LinkedHashMap<>();
+            for (Placement p : toPlace) needs.merge(p.block(), 1, Integer::sum);
+            return needs;
+        }
+    }
+
+    /** The two materials of a base: floor (and foundation), walls (and roof). */
+    public record Materials(@Nullable Block floor, @Nullable Block walls) {
+        @Nullable
+        public Block of(BaseShape.Part part) {
+            return part.usesWallMaterial() ? walls : floor;
         }
     }
 
@@ -64,40 +82,132 @@ public final class BaseBuilder {
                 && !state.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty();
     }
 
-    /** The block in the off hand wins; otherwise the block picked with sneak + right-click. */
+    /**
+     * The materials to build with. A block in the off hand is used for everything; otherwise the floor block picked
+     * with sneak + right-click, and the wall block picked the same way (walls fall back to the floor block).
+     */
+    public static Materials materials(Player player, ItemStack blueprint) {
+        if (player.getOffhandItem().getItem() instanceof BlockItem item && isValidMaterial(item.getBlock())) {
+            return new Materials(item.getBlock(), item.getBlock());
+        }
+        Block floor = blueprint.get(ModComponents.MATERIAL.get());
+        Block walls = blueprint.get(ModComponents.WALL_MATERIAL.get());
+        floor = isValidMaterial(floor) ? floor : null;
+        walls = isValidMaterial(walls) ? walls : floor;
+        return new Materials(floor, walls);
+    }
+
+    /** The floor material (for callers that only need one block). */
     @Nullable
     public static Block material(Player player, ItemStack blueprint) {
-        if (player.getOffhandItem().getItem() instanceof BlockItem item && isValidMaterial(item.getBlock())) {
-            return item.getBlock();
-        }
-        Block picked = blueprint.get(ModComponents.MATERIAL.get());
-        return isValidMaterial(picked) ? picked : null;
+        return materials(player, blueprint).floor();
     }
 
     public static BlueprintSettings settings(ItemStack blueprint) {
         return blueprint.getOrDefault(ModComponents.SETTINGS.get(), BlueprintSettings.DEFAULT);
     }
 
+    /** The side the door goes on: the one facing the player. */
+    public static Direction doorSide(BlueprintSettings settings, BlockPos origin, @Nullable Player player) {
+        return player == null ? Direction.SOUTH : BaseShape.sideFacing(settings, origin, player.getX(), player.getZ());
+    }
+
     public static Plan plan(Level level, @Nullable Player player, BlueprintSettings settings, BlockPos origin, Block block) {
-        BlockState state = block.defaultBlockState();
-        List<BlockPos> toPlace = new ArrayList<>();
+        return plan(level, player, settings, origin, new Materials(block, block));
+    }
+
+    /** What would be placed (parts without a material are skipped) and what is in the way. */
+    public static Plan plan(Level level, @Nullable Player player, BlueprintSettings settings, BlockPos origin, Materials materials) {
+        List<Placement> wanted = new ArrayList<>();
+        Direction door = doorSide(settings, origin, player);
+        List<BaseShape.Placement> shape = BaseShape.of(settings).placements(settings, origin, door);
+        // Foundation first, bottom-up, so every column is supported before the floor goes on top.
+        if (settings.foundation() && settings.floor() != BlueprintSettings.Floor.NONE && materials.floor() != null) {
+            int max = BlueprintConfig.maxFoundation();
+            for (BaseShape.Placement p : shape) {
+                if (p.part() != BaseShape.Part.FLOOR) continue;
+                List<BlockPos> column = new ArrayList<>();
+                BlockPos below = p.pos().below();
+                while (column.size() < max && level.isInWorldBounds(below) && level.getBlockState(below).canBeReplaced()) {
+                    column.add(below);
+                    below = below.below();
+                }
+                for (int i = column.size() - 1; i >= 0; i--) {
+                    wanted.add(new Placement(column.get(i), materials.floor(), BaseShape.Part.FOUNDATION));
+                }
+            }
+        }
+        for (BaseShape.Placement p : shape) {
+            Block block = materials.of(p.part());
+            if (block != null) wanted.add(new Placement(p.pos(), block, p.part()));
+        }
+
+        List<Placement> toPlace = new ArrayList<>();
         List<BlockPos> blocked = new ArrayList<>();
-        for (BlockPos pos : BaseShape.of(settings).positions(settings, origin)) {
+        for (Placement p : wanted) {
+            BlockPos pos = p.pos();
             if (!level.isInWorldBounds(pos) || (player != null && !level.mayInteract(player, pos))) {
                 blocked.add(pos);
                 continue;
             }
             BlockState current = level.getBlockState(pos);
-            if (current.is(block)) continue; // already built
-            if (!current.canBeReplaced() || !state.canSurvive(level, pos)) {
+            if (current.is(p.block())) continue; // already built
+            if (!current.canBeReplaced() || !p.block().defaultBlockState().canSurvive(level, pos)) {
                 blocked.add(pos);
                 continue;
             }
-            toPlace.add(pos);
+            toPlace.add(p);
         }
         return new Plan(toPlace, blocked);
     }
 
+    // ---- where the blocks come from ----
+
+    /** Item handlers of containers carried in the inventory (backpacks and the like). */
+    private static List<IItemHandler> carriedContainers(Player player, Item item) {
+        List<IItemHandler> out = new ArrayList<>();
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (stack.isEmpty() || stack.is(item)) continue;
+            IItemHandler handler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+            if (handler != null) out.add(handler);
+        }
+        return out;
+    }
+
+    /** Item handlers of containers within {@link BlueprintConfig#containerRadius()} blocks the player may open. */
+    private static List<IItemHandler> nearbyContainers(Player player) {
+        int radius = BlueprintConfig.containerRadius();
+        List<IItemHandler> out = new ArrayList<>();
+        if (radius <= 0 || !(player.level() instanceof ServerLevel level)) return out;
+        BlockPos center = player.blockPosition();
+        int minCx = (center.getX() - radius) >> 4, maxCx = (center.getX() + radius) >> 4;
+        int minCz = (center.getZ() - radius) >> 4, maxCz = (center.getZ() + radius) >> 4;
+        for (int cx = minCx; cx <= maxCx; cx++) {
+            for (int cz = minCz; cz <= maxCz; cz++) {
+                if (!level.hasChunk(cx, cz)) continue;
+                LevelChunk chunk = level.getChunk(cx, cz);
+                for (BlockPos pos : List.copyOf(chunk.getBlockEntities().keySet())) {
+                    if (!pos.closerThan(center, radius + 0.5) || !level.mayInteract(player, pos)) continue;
+                    IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+                    if (handler != null) out.add(handler);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static int count(IItemHandler handler, Item item) {
+        int total = 0;
+        for (int i = 0; i < handler.getSlots(); i++) {
+            ItemStack stack = handler.getStackInSlot(i);
+            if (stack.is(item)) total += stack.getCount();
+        }
+        return total;
+    }
+
+    /** Blocks of {@code item} in the inventory alone (all the client can see, for the preview). */
     public static int countItem(Player player, Item item) {
         Inventory inv = player.getInventory();
         int total = 0;
@@ -108,6 +218,15 @@ public final class BaseBuilder {
         return total;
     }
 
+    /** Blocks of {@code item} available to build with: inventory, carried containers and nearby containers. */
+    public static int countAvailable(Player player, Item item) {
+        int total = countItem(player, item);
+        for (IItemHandler handler : carriedContainers(player, item)) total += count(handler, item);
+        for (IItemHandler handler : nearbyContainers(player)) total += count(handler, item);
+        return total;
+    }
+
+    /** Takes {@code amount} of {@code item}: inventory first, then carried containers, then nearby ones. */
     private static void consume(Player player, Item item, int amount) {
         Inventory inv = player.getInventory();
         for (int i = 0; i < inv.getContainerSize() && amount > 0; i++) {
@@ -119,72 +238,91 @@ public final class BaseBuilder {
             }
         }
         inv.setChanged();
+        if (amount <= 0) return;
+        List<IItemHandler> others = new ArrayList<>(carriedContainers(player, item));
+        others.addAll(nearbyContainers(player));
+        for (IItemHandler handler : others) {
+            for (int i = 0; i < handler.getSlots() && amount > 0; i++) {
+                if (!handler.getStackInSlot(i).is(item)) continue;
+                amount -= handler.extractItem(i, amount, false).getCount();
+            }
+            if (amount <= 0) break;
+        }
     }
+
+    // ---- building ----
 
     /** Builds the base. Returns the number of blocks placed (0 when nothing was built). */
     public static int build(Player player, ItemStack blueprint, BlockPos origin) {
         Level level = player.level();
         if (!player.mayBuild()) return 0;
-        Block block = material(player, blueprint);
-        if (block == null) {
+        BlueprintSettings settings = settings(blueprint).clamped();
+        Materials materials = materials(player, blueprint);
+        if (materials.floor() == null) {
             player.displayClientMessage(Component.translatable("message.baseblueprint.no_material")
                     .withStyle(ChatFormatting.YELLOW), true);
             return 0;
         }
-        BlueprintSettings settings = settings(blueprint).clamped();
-        Plan plan = plan(level, player, settings, origin, block);
+        Plan plan = plan(level, player, settings, origin, materials);
         // A base with holes is not a base: refuse until the spots are cleared (unless the server allows it).
         if (plan.blocked() > 0 && !BlueprintConfig.allowPartial()) {
             player.displayClientMessage(Component.translatable("message.baseblueprint.blocked", plan.blocked())
                     .withStyle(ChatFormatting.RED), true);
             return 0;
         }
-        int need = plan.toPlace().size();
-        if (need == 0) {
+        if (plan.toPlace().isEmpty()) {
             player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_place")
                     .withStyle(ChatFormatting.YELLOW), true);
             return 0;
         }
 
         boolean free = player.isCreative();
-        Item item = block.asItem();
         if (!free) {
-            int have = countItem(player, item);
-            if (have < need) {
-                player.displayClientMessage(Component.translatable("message.baseblueprint.not_enough",
-                        need - have, block.getName(), have, need).withStyle(ChatFormatting.RED), true);
-                return 0;
+            for (Map.Entry<Block, Integer> need : plan.needs().entrySet()) {
+                int have = countAvailable(player, need.getKey().asItem());
+                if (have < need.getValue()) {
+                    player.displayClientMessage(Component.translatable("message.baseblueprint.not_enough",
+                            need.getValue() - have, need.getKey().getName(), have, need.getValue())
+                            .withStyle(ChatFormatting.RED), true);
+                    return 0;
+                }
             }
         }
 
-        BlockState state = block.defaultBlockState();
-        List<BlockPos> placed = new ArrayList<>(need);
-        for (BlockPos pos : plan.toPlace()) {
-            BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, pos);
-            if (!level.setBlock(pos, state, Block.UPDATE_ALL)) continue;
+        List<UndoHistory.Placed> placed = new ArrayList<>(plan.toPlace().size());
+        Map<Block, Integer> used = new LinkedHashMap<>();
+        for (Placement p : plan.toPlace()) {
+            BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, p.pos());
+            if (!level.setBlock(p.pos(), p.block().defaultBlockState(), Block.UPDATE_ALL)) continue;
             // Lets claim and protection mods refuse single blocks; refused ones are put back and not charged.
             if (EventHooks.onBlockPlace(player, snapshot, Direction.UP)) {
                 snapshot.restore(Block.UPDATE_ALL);
                 continue;
             }
-            placed.add(pos);
+            placed.add(new UndoHistory.Placed(p.pos(), p.block()));
+            used.merge(p.block(), 1, Integer::sum);
         }
         if (placed.isEmpty()) {
             player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_place")
                     .withStyle(ChatFormatting.YELLOW), true);
             return 0;
         }
-        if (!free) consume(player, item, placed.size());
-        liftEntities(level, placed);
+        if (!free) used.forEach((block, n) -> consume(player, block.asItem(), n));
+        List<BlockPos> positions = new ArrayList<>(placed.size());
+        for (UndoHistory.Placed p : placed) positions.add(p.pos());
+        liftEntities(level, positions);
 
-        SoundType sound = state.getSoundType(level, origin, player);
+        SoundType sound = placed.get(0).block().defaultBlockState().getSoundType(level, origin, player);
         level.playSound(null, origin, sound.getPlaceSound(), SoundSource.BLOCKS,
                 (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
-        LAST.put(player.getUUID(), new LastBuild(level.dimension(), placed, block));
+        if (level.getServer() != null) {
+            UndoHistory.get(level.getServer()).put(player.getUUID(), new UndoHistory.LastBuild(level.dimension(), placed));
+        }
 
+        Block main = used.keySet().iterator().next();
         Component msg = plan.blocked() > 0
-                ? Component.translatable("message.baseblueprint.built_blocked", placed.size(), block.getName(), plan.blocked())
-                : Component.translatable("message.baseblueprint.built", placed.size(), block.getName());
+                ? Component.translatable("message.baseblueprint.built_blocked", placed.size(), main.getName(), plan.blocked())
+                : Component.translatable("message.baseblueprint.built", placed.size(), main.getName());
         player.displayClientMessage(msg.copy().withStyle(ChatFormatting.GREEN), true);
         return placed.size();
     }
@@ -217,38 +355,39 @@ public final class BaseBuilder {
 
     /** Removes the player's last base, if its blocks are still there, and returns them. */
     public static void undo(Player player) {
-        if (!BlueprintConfig.allowUndo()) return;
         Level level = player.level();
-        LastBuild last = LAST.get(player.getUUID());
-        if (last == null || last.dimension() != level.dimension()) {
+        if (!BlueprintConfig.allowUndo() || level.getServer() == null) return;
+        UndoHistory history = UndoHistory.get(level.getServer());
+        UndoHistory.LastBuild last = history.get(player.getUUID());
+        if (last == null || last.blocks().isEmpty() || last.dimension() != level.dimension()) {
             player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_undo")
                     .withStyle(ChatFormatting.YELLOW), true);
             return;
         }
-        LAST.remove(player.getUUID());
-        int removed = 0;
-        // Walls first so nothing is left floating while the floor goes.
-        for (int i = last.positions().size() - 1; i >= 0; i--) {
-            BlockPos pos = last.positions().get(i);
-            if (level.getBlockState(pos).is(last.block()) && level.mayInteract(player, pos)) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-                removed++;
+        history.remove(player.getUUID());
+        Map<Block, Integer> removed = new LinkedHashMap<>();
+        // Roof and walls first, foundation last, so nothing is left floating while the base goes.
+        for (int i = last.blocks().size() - 1; i >= 0; i--) {
+            UndoHistory.Placed p = last.blocks().get(i);
+            if (level.getBlockState(p.pos()).is(p.block()) && level.mayInteract(player, p.pos())) {
+                level.setBlock(p.pos(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                removed.merge(p.block(), 1, Integer::sum);
             }
         }
         if (!player.isCreative()) {
-            Item item = last.block().asItem();
-            int left = removed;
-            while (left > 0) {
-                int n = Math.min(left, item.getDefaultMaxStackSize());
-                player.getInventory().placeItemBackInInventory(new ItemStack(item, n));
-                left -= n;
-            }
+            removed.forEach((block, n) -> {
+                Item item = block.asItem();
+                int left = n;
+                while (left > 0) {
+                    int stack = Math.min(left, item.getDefaultMaxStackSize());
+                    player.getInventory().placeItemBackInInventory(new ItemStack(item, stack));
+                    left -= stack;
+                }
+            });
         }
-        player.displayClientMessage(Component.translatable("message.baseblueprint.undone", removed, last.block().getName())
+        int total = removed.values().stream().mapToInt(Integer::intValue).sum();
+        Block main = removed.isEmpty() ? last.blocks().get(0).block() : removed.keySet().iterator().next();
+        player.displayClientMessage(Component.translatable("message.baseblueprint.undone", total, main.getName())
                 .withStyle(ChatFormatting.AQUA), true);
-    }
-
-    public static void forget(UUID player) {
-        LAST.remove(player);
     }
 }

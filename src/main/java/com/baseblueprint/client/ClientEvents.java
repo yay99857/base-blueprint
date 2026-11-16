@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -35,7 +36,9 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** In-world outline preview, the hint under the crosshair and the menu key. */
 @EventBusSubscriber(modid = BaseBlueprint.MOD_ID, value = Dist.CLIENT)
@@ -45,19 +48,31 @@ public final class ClientEvents {
 
     /** What the blueprint would build where the player is looking. Refreshed every few ticks. */
     private record Preview(BlueprintSettings settings, BaseShape shape, BlockPos origin, @Nullable Block block,
-                           int need, int have, List<BlockPos> blocked, boolean creative) {
+                           Map<Block, int[]> counts, List<BlockPos> blocked, List<BaseShape.Placement> placements,
+                           Direction doorSide, boolean creative) {
+        /** Enough of every block in the inventory alone (the client cannot see containers). */
         boolean enough() {
-            return creative || have >= need;
+            if (creative) return true;
+            for (int[] c : counts.values()) if (c[1] < c[0]) return false;
+            return true;
         }
 
         /** Would a click build? Needs the material, enough of it and (unless partial builds are on) a clear area. */
         boolean buildable() {
             return block != null && enough() && (blocked.isEmpty() || BlueprintConfig.allowPartial());
         }
+
+        /** Short of blocks in the inventory, but nearby containers and backpacks may cover it on the server. */
+        boolean maybeFromContainers() {
+            return block != null && !enough() && BlueprintConfig.containerRadius() > 0
+                    && (blocked.isEmpty() || BlueprintConfig.allowPartial());
+        }
     }
 
     /** Red boxes drawn at most for this many occupied spots, so a base dropped into a forest stays cheap to render. */
     private static final int MAX_BLOCKED_BOXES = 400;
+    /** Dome blocks outlined at most, for the same reason. */
+    private static final int MAX_ROOF_BOXES = 3000;
 
     @Nullable
     private static Preview preview;
@@ -100,17 +115,19 @@ public final class ClientEvents {
         ItemStack stack = player.getItemInHand(hand);
         BlueprintSettings settings = BaseBuilder.settings(stack).clamped();
         BlockPos origin = BaseBuilder.target(mc.level, hit.getBlockPos(), hit.getDirection());
-        Block block = BaseBuilder.material(player, stack);
+        BaseBuilder.Materials materials = BaseBuilder.materials(player, stack);
+        Block block = materials.floor();
         BaseShape shape = preview != null && preview.settings().equals(settings) ? preview.shape() : BaseShape.of(settings);
-        int need = 0, have = 0;
+        Direction doorSide = BaseBuilder.doorSide(settings, origin, player);
+        Map<Block, int[]> counts = new LinkedHashMap<>();
         List<BlockPos> blocked = List.of();
         if (block != null) {
-            BaseBuilder.Plan plan = BaseBuilder.plan(mc.level, player, settings, origin, block);
-            need = plan.toPlace().size();
+            BaseBuilder.Plan plan = BaseBuilder.plan(mc.level, player, settings, origin, materials);
+            plan.needs().forEach((b, n) -> counts.put(b, new int[]{n, BaseBuilder.countItem(player, b.asItem())}));
             blocked = plan.blockedPositions();
-            have = BaseBuilder.countItem(player, block.asItem());
         }
-        preview = new Preview(settings, shape, origin, block, need, have, blocked, player.isCreative());
+        preview = new Preview(settings, shape, origin, block, counts, blocked,
+                shape.placements(settings, origin, doorSide), doorSide, player.isCreative());
     }
 
     @SubscribeEvent
@@ -127,6 +144,8 @@ public final class ClientEvents {
             r = 1.0f; g = 0.85f; b = 0.3f;
         } else if (p.buildable()) {
             r = 0.35f; g = 0.95f; b = 0.45f;
+        } else if (p.maybeFromContainers()) {
+            r = 1.0f; g = 0.75f; b = 0.25f;
         } else {
             r = 1.0f; g = 0.35f; b = 0.3f;
         }
@@ -139,12 +158,37 @@ public final class ClientEvents {
         pose.translate(-cam.x, -cam.y, -cam.z);
         int x0 = BaseShape.startX(s, p.origin()), z0 = BaseShape.startZ(s, p.origin()), y0 = p.origin().getY();
         BaseShape shape = p.shape();
-        for (int z = 0; z < shape.length(); z++) {
-            for (int x = 0; x < shape.width(); x++) {
-                if (!shape.edge(x, z)) continue;
-                double e = 0.004;
-                LevelRenderer.renderLineBox(pose, lines, x0 + x + e, y0 + e, z0 + z + e,
-                        x0 + x + 1 - e, y0 + layers - e, z0 + z + 1 - e, r, g, b, 0.9f);
+        double e = 0.004;
+        int wallTop = y0 + layers;
+        // The ring of the floor and walls as columns, then each roof block (a flat roof or the dome shell).
+        java.util.Set<Long> columns = new java.util.HashSet<>();
+        int roofBoxes = 0;
+        for (BaseShape.Placement placement : p.placements()) {
+            BlockPos pos = placement.pos();
+            if (placement.part() == BaseShape.Part.ROOF) {
+                if (s.effectiveRoof() == BlueprintSettings.Roof.FLAT && !shape.edge(pos.getX() - x0, pos.getZ() - z0)) continue;
+                if (roofBoxes++ >= MAX_ROOF_BOXES) continue;
+                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, pos.getY() + e, pos.getZ() + e,
+                        pos.getX() + 1 - e, pos.getY() + 1 - e, pos.getZ() + 1 - e, r, g, b, 0.6f);
+            } else if (shape.edge(pos.getX() - x0, pos.getZ() - z0) && columns.add(BlockPos.asLong(pos.getX(), 0, pos.getZ()))) {
+                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, y0 + e, pos.getZ() + e,
+                        pos.getX() + 1 - e, wallTop - e, pos.getZ() + 1 - e, r, g, b, 0.9f);
+            }
+        }
+        // the doorway, in light blue
+        if (s.door() && s.wallHeight() > 0) {
+            java.util.Set<BlockPos> walls = new java.util.HashSet<>();
+            for (BaseShape.Placement placement : p.placements()) {
+                if (placement.part() == BaseShape.Part.WALL) walls.add(placement.pos());
+            }
+            int wy = y0 + BaseShape.wallStart(s);
+            for (int z = 0; z < shape.length(); z++) {
+                for (int x = 0; x < shape.width(); x++) {
+                    BlockPos wall = new BlockPos(x0 + x, wy, z0 + z);
+                    if (!shape.edge(x, z) || walls.contains(wall)) continue;
+                    LevelRenderer.renderLineBox(pose, lines, wall.getX() + 0.1, wy + 0.02, wall.getZ() + 0.1,
+                            wall.getX() + 0.9, wy + Math.min(2, s.wallHeight()) - 0.02, wall.getZ() + 0.9, 0.4f, 0.8f, 1f, 1f);
+                }
             }
         }
         // occupied spots: clear these (or move) before the base can be built
@@ -173,19 +217,31 @@ public final class ClientEvents {
         Component summary = Component.translatable("tooltip.baseblueprint.summary",
                 Component.translatable("shape.baseblueprint." + s.shape().getSerializedName()), s.width(), s.length(),
                 Component.translatable("floor.baseblueprint." + s.floor().getSerializedName()), s.wallHeight());
-        Component status;
-        if (p.block() == null) {
-            status = Component.translatable("hud.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW);
-        } else if (p.creative()) {
-            status = Component.translatable("hud.baseblueprint.creative", p.need(), p.block().getName())
-                    .withStyle(ChatFormatting.GREEN);
-        } else {
-            status = Component.translatable("hud.baseblueprint.count", p.block().getName(), p.have(), p.need())
-                    .withStyle(p.enough() ? ChatFormatting.GREEN : ChatFormatting.RED);
-        }
         int cx = g.guiWidth() / 2, y = g.guiHeight() / 2 + 14;
         g.drawCenteredString(mc.font, summary, cx, y, 0xFFE0E0E0);
-        g.drawCenteredString(mc.font, status, cx, y + 11, 0xFFFFFFFF);
+        if (p.block() == null) {
+            y += 11;
+            g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW),
+                    cx, y, 0xFFFFFFFF);
+        } else {
+            // one line per block: floor, and walls when they differ
+            for (Map.Entry<Block, int[]> entry : p.counts().entrySet()) {
+                y += 11;
+                int need = entry.getValue()[0], have = entry.getValue()[1];
+                Component line = p.creative()
+                        ? Component.translatable("hud.baseblueprint.creative", need, entry.getKey().getName()).withStyle(ChatFormatting.GREEN)
+                        : Component.translatable("hud.baseblueprint.count", entry.getKey().getName(), have, need)
+                        .withStyle(have >= need ? ChatFormatting.GREEN
+                                : BlueprintConfig.containerRadius() > 0 ? ChatFormatting.GOLD : ChatFormatting.RED);
+                g.drawCenteredString(mc.font, line, cx, y, 0xFFFFFFFF);
+            }
+            if (p.maybeFromContainers()) {
+                y += 11;
+                g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.containers", BlueprintConfig.containerRadius())
+                        .withStyle(ChatFormatting.GRAY), cx, y, 0xFFFFFFFF);
+            }
+        }
+        y -= 11; // the blocked line below goes right after the last one
         if (!p.blocked().isEmpty() && p.block() != null) {
             boolean partial = BlueprintConfig.allowPartial();
             g.drawCenteredString(mc.font, Component.translatable(partial ? "hud.baseblueprint.blocked_partial"
