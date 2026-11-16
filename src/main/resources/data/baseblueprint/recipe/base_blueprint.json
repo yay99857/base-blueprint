@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    { "item": "minecraft:crafting_table" },
+    { "item": "minecraft:stick" }
+  ],
+  "result": {
+    "count": 1,
+    "id": "baseblueprint:base_blueprint"
+  }
+}
