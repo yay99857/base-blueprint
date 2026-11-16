@@ -37,6 +37,9 @@ Server config: max size, max wall height, undo, partial builds, container radius
 ---
 
 ## Publishing checklist (not part of the page)
+CurseForge project id **1809447** (unlisted, MIT, 3rd-party distribution allowed).
+Files: 1.1.0 = fileID **9642380** (awaiting moderation on 2026-11-16).
+
 1. `./gradlew build` and `./gradlew runGameTestServer`.
 2. Bump `mod_version` in `gradle.properties` and the changelog in `README.md`.
 3. Upload `build/libs/baseblueprint-<version>.jar`: NeoForge, 1.21.1, Java 21, client + server, MIT.
