@@ -176,8 +176,8 @@ public class BlueprintScreen extends Screen {
     private void drawMaterial(GuiGraphics g, Player player, String key, Block block, int x, int y) {
         boolean creative = player.isCreative();
         int have = BaseBuilder.countItem(player, block.asItem());
-        Component line = Component.translatable(key, block.getName(),
-                creative ? Component.translatable("screen.baseblueprint.free") : Component.literal(String.valueOf(have)));
+        Component line = creative ? Component.translatable(key + "_free", block.getName())
+                : Component.translatable(key, block.getName(), have);
         g.drawString(font, line, x, y, 0xFFE0E0E0, false);
     }
 

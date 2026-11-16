@@ -26,6 +26,11 @@ neoForge {
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
+        shots {
+            client()
+            systemProperty 'baseblueprint.shots', 'true'
+            programArguments.addAll('--quickPlaySingleplayer', 'Shots')
+        }
         // ./gradlew runGameTestServer : runs every @GameTest and exits (non-zero on failure)
         gameTestServer {
             type = "gameTestServer"

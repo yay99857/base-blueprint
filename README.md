@@ -7,14 +7,22 @@ um piso redondo, quadrado, octogonal ou hexagonal, com paredes, porta, teto ou c
 tamanho que você escolher, usando blocos do seu inventário, da sua mochila e dos baús por perto. O círculo segue a mesma regra dos geradores de círculo em pixel
 (como o donatstudios PixelCircleGenerator).
 
+## Imagens
+| | |
+|---|---|
+| ![Quatro bases: cúpula, octógono, hexágono e fundação](docs/screenshots/overview.jpg) | ![Menu com prévia em pixels](docs/screenshots/menu.jpg) |
+| ![Prévia no mundo antes de construir](docs/screenshots/preview.jpg) | ![Base redonda com cúpula e porta](docs/screenshots/dome.jpg) |
+| ![Dentro da cúpula](docs/screenshots/inside.jpg) | ![Fundação num desnível](docs/screenshots/foundation.jpg) |
+| ![Octógono com teto plano](docs/screenshots/octagon.jpg) | ![Hexágono sem teto](docs/screenshots/hexagon.jpg) |
+
 ## Receita
 Sem forma: **Mesa de trabalho + Graveto**.
 
 ## Como usar
 | Ação | O que faz |
 |---|---|
-| Clique direito no ar ou tecla **N** | Abre o menu: forma (círculo, quadrado, octógono, hexágono), largura, comprimento, piso (cheio / contorno / sem piso), altura das paredes, porta, teto (nenhum / plano / cúpula), fundação e o que o Shift-clique escolhe. Tem prévia em pixels. Shift nos botões +/- muda de 5 em 5 |
-| Shift + clique direito num bloco | Escolhe esse bloco como material **do piso** ou **das paredes e do teto**, conforme a opção "Shift-clique escolhe" do menu. Sem material de parede, as paredes usam o do piso |
+| Clique direito no ar ou tecla **N** | Abre o menu: forma (círculo, quadrado, octógono, hexágono), largura, comprimento, piso (cheio / contorno / sem piso), altura das paredes, porta, teto (nenhum / plano / cúpula), fundação e o que o Shift-clique escolhe (piso ou paredes). Tem prévia em pixels. Shift nos botões +/- muda de 5 em 5 |
+| Shift + clique direito num bloco | Escolhe esse bloco como material **do piso** ou **das paredes e do teto**, conforme a opção "Shift-clique" do menu. Sem material de parede, as paredes usam o do piso |
 | Bloco na mão secundária | Tem prioridade e vale para tudo |
 | Segurar a planta e mirar num bloco | Mostra o contorno da base no mundo (verde = blocos suficientes, vermelho = faltam) e a contagem abaixo da mira |
 | Clique direito num bloco | Constrói a base centrada ali |
@@ -39,6 +47,7 @@ Sem forma: **Mesa de trabalho + Graveto**.
 
 ## Build
 ```
+./gradlew runShots             # monta bases de exemplo e tira as imagens de docs/screenshots (run/screenshots)
 ./gradlew build                # jar em build/libs/baseblueprint-<versão>.jar
 ./gradlew runGameTestServer    # testes in-game
 ./gradlew runClient            # cliente de desenvolvimento
@@ -46,8 +55,11 @@ Sem forma: **Mesa de trabalho + Graveto**.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.1.1
+- Menu: o botão "Shift-clique" não corta mais o texto; no criativo, a linha do material diz só "(criativo)".
+
 ### 1.1.0
-- Material separado para o piso e para as paredes e o teto ("Shift-clique escolhe" no menu).
+- Material separado para o piso e para as paredes e o teto (opção "Shift-clique" no menu).
 - Porta automática na parede virada para o jogador.
 - Teto plano ou cúpula (meia esfera oca, no círculo).
 - Formas novas: octógono e hexágono.
