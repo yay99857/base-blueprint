@@ -4,7 +4,7 @@
 
 *🇧🇷 Versão em português mais abaixo.*
 
-An early-game item, crafted from a crafting table and a stick, that builds a whole base at once.
+An early-game item, crafted from a crafting table and 3 paper, that builds a whole base at once.
 
 ![Four bases built with the blueprint](https://media.forgecdn.net/attachments/2215/596/overview-jpg.jpg)
 

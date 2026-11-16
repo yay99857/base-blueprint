@@ -16,7 +16,7 @@ tamanho que você escolher, usando blocos do seu inventário, da sua mochila e d
 | ![Octógono com teto plano](docs/screenshots/octagon.jpg) | ![Hexágono sem teto](docs/screenshots/hexagon.jpg) |
 
 ## Receita
-Sem forma: **Mesa de trabalho + Graveto**.
+Sem forma: **Mesa de trabalho + 3 Papéis**.
 
 ## Como usar
 | Ação | O que faz |
@@ -55,6 +55,9 @@ Sem forma: **Mesa de trabalho + Graveto**.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.1.2
+- Receita: mesa de trabalho + 3 papéis (antes: mesa + graveto).
+
 ### 1.1.1
 - Menu: o botão "Shift-clique" não corta mais o texto; no criativo, a linha do material diz só "(criativo)".
 

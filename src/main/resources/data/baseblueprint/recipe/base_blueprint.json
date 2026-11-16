@@ -3,7 +3,9 @@
   "category": "equipment",
   "ingredients": [
     { "item": "minecraft:crafting_table" },
-    { "item": "minecraft:stick" }
+    { "item": "minecraft:paper" },
+    { "item": "minecraft:paper" },
+    { "item": "minecraft:paper" }
   ],
   "result": {
     "count": 1,
