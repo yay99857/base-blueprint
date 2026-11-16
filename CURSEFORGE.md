@@ -47,7 +47,7 @@ Server config: max size, max wall height, undo, partial builds, container radius
 
 ## Publishing checklist (not part of the page)
 CurseForge project id **1809447** (unlisted, MIT, 3rd-party distribution allowed).
-Files: 1.1.0 = fileID **9642380**, 1.1.1 = fileID **9642554** (both awaiting moderation on 2026-11-16).
+Files: 1.1.0 = fileID **9642380**, 1.1.1 = fileID **9642554**, 1.1.2 = fileID **9642630** (all awaiting moderation on 2026-11-16).
 Screenshots: uploaded to the project's Media tab (attachments 2215/596-603), regenerate with `./gradlew runShots`.
 
 1. `./gradlew build` and `./gradlew runGameTestServer`.
