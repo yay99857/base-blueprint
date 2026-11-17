@@ -17,9 +17,12 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public class BaseBlueprint {
     public static final String MOD_ID = "baseblueprint";
 
+    /** Bases one blueprint builds before it wears out (repair with paper in an anvil). */
+    public static final int USES = 8;
+
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
     public static final DeferredItem<BlueprintItem> BLUEPRINT =
-            ITEMS.register("base_blueprint", () -> new BlueprintItem(new Item.Properties().stacksTo(1)));
+            ITEMS.register("base_blueprint", () -> new BlueprintItem(new Item.Properties().durability(USES)));
 
     public BaseBlueprint(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BlueprintConfig.SPEC);

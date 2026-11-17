@@ -324,7 +324,21 @@ public final class BaseBuilder {
                 ? Component.translatable("message.baseblueprint.built_blocked", placed.size(), main.getName(), plan.blocked())
                 : Component.translatable("message.baseblueprint.built", placed.size(), main.getName());
         player.displayClientMessage(msg.copy().withStyle(ChatFormatting.GREEN), true);
+        wear(player, blueprint);
         return placed.size();
+    }
+
+    /** Each base built uses one of the blueprint's uses ({@link BaseBlueprint#USES}); free in creative. */
+    static void wear(Player player, ItemStack blueprint) {
+        if (player.isCreative() || !blueprint.isDamageableItem()
+                || !(player.level() instanceof net.minecraft.server.level.ServerLevel server)) return;
+        if (player.getMainHandItem() == blueprint) {
+            blueprint.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+        } else if (player.getOffhandItem() == blueprint) {
+            blueprint.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.OFFHAND);
+        } else {
+            blueprint.hurtAndBreak(1, server, player, item -> { });
+        }
     }
 
     /** Anything standing where a block appeared is moved on top of it instead of suffocating. */

@@ -314,4 +314,27 @@ public class BlueprintGameTests {
         helper.assertValueEqual(last.blocks().get(0).block(), Blocks.COBBLESTONE, "block remembered");
         helper.succeed();
     }
+
+    /** A blueprint builds 8 bases and then breaks; creative does not wear it. */
+    @GameTest(template = EMPTY)
+    public static void blueprintWearsOutAfterEightBases(GameTestHelper helper) {
+        Player player = survivor(helper, 64);
+        ItemStack stack = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0));
+        helper.assertValueEqual(stack.getMaxDamage(), 8, "uses");
+        BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
+        for (int i = 1; i <= 8; i++) {
+            helper.assertValueEqual(BaseBuilder.build(player, stack, origin), 9, "blocks placed on build " + i);
+            if (i < 8) {
+                helper.assertValueEqual(stack.getDamageValue(), i, "uses spent after build " + i);
+                BaseBuilder.undo(player);
+            }
+        }
+        helper.assertTrue(stack.isEmpty(), "blueprint did not break after 8 bases");
+
+        Player creative = helper.makeMockPlayer(GameType.CREATIVE);
+        ItemStack free = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0));
+        BaseBuilder.build(creative, free, helper.absolutePos(new BlockPos(4, 2, 4)));
+        helper.assertValueEqual(free.getDamageValue(), 0, "creative wore the blueprint");
+        helper.succeed();
+    }
 }

@@ -18,6 +18,9 @@ tamanho que você escolher, usando blocos do seu inventário, da sua mochila e d
 ## Receita
 Sem forma: **Mesa de trabalho + 3 Papéis**.
 
+Cada planta constrói **8 bases** e depois se gasta (o desfazer não devolve o uso). No criativo não gasta.
+Conserta na bigorna com papel.
+
 ## Como usar
 | Ação | O que faz |
 |---|---|
@@ -55,6 +58,10 @@ Sem forma: **Mesa de trabalho + 3 Papéis**.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.2.0
+- A planta tem **8 usos**: cada base construída gasta um; no criativo não gasta. Conserta na bigorna com papel.
+  A dica do item mostra os usos restantes.
+
 ### 1.1.2
 - Receita: mesa de trabalho + 3 papéis (antes: mesa + graveto).
 

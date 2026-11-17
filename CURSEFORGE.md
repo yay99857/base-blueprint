@@ -4,7 +4,7 @@
 
 *🇧🇷 Versão em português mais abaixo.*
 
-An early-game item, crafted from a crafting table and 3 paper, that builds a whole base at once.
+An early-game item, crafted from a crafting table and 3 paper, that builds a whole base at once. Each blueprint builds **8 bases** (repair it with paper in an anvil).
 
 ![Four bases built with the blueprint](https://media.forgecdn.net/attachments/2215/596/overview-jpg.jpg)
 
@@ -41,6 +41,7 @@ Server config: max size, max wall height, undo, partial builds, container radius
 - Formas: círculo, quadrado, octógono e hexágono, de qualquer tamanho.
 - Piso cheio, só contorno ou sem piso; paredes de qualquer altura com **porta** automática; **teto** plano ou **cúpula**; **fundação** em terreno irregular.
 - Material separado para o piso e para as paredes e o teto.
+- Cada planta constrói **8 bases** (conserta na bigorna com papel).
 - Prévia no mundo (verde = dá para construir, vermelho = ocupado), desfazer salvo com o mundo, respeita proteções de claim.
 
 ---

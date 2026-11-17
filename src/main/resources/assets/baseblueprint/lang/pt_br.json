@@ -61,5 +61,6 @@
   "message.baseblueprint.wall_material_set": "Material das paredes e do teto: %s",
   "hud.baseblueprint.containers": "Faltam blocos no inventário: o resto vem de baús a até %s blocos e da mochila",
   "screen.baseblueprint.material_floor_free": "Piso: %s (criativo)",
-  "screen.baseblueprint.material_walls_free": "Paredes e teto: %s (criativo)"
+  "screen.baseblueprint.material_walls_free": "Paredes e teto: %s (criativo)",
+  "tooltip.baseblueprint.uses": "Usos restantes: %s / %s"
 }

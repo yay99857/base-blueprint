@@ -61,5 +61,6 @@
   "message.baseblueprint.wall_material_set": "Wall and roof material: %s",
   "hud.baseblueprint.containers": "Short in the inventory: the rest comes from chests within %s blocks and your backpack",
   "screen.baseblueprint.material_floor_free": "Floor: %s (creative)",
-  "screen.baseblueprint.material_walls_free": "Walls and roof: %s (creative)"
+  "screen.baseblueprint.material_walls_free": "Walls and roof: %s (creative)",
+  "tooltip.baseblueprint.uses": "Uses left: %s / %s"
 }

@@ -66,9 +66,18 @@ public class BlueprintItem extends Item {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    /** Paper repairs it in an anvil. */
+    @Override
+    public boolean isValidRepairItem(ItemStack stack, ItemStack repair) {
+        return repair.is(net.minecraft.world.item.Items.PAPER);
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         BlueprintSettings s = BaseBuilder.settings(stack);
+        int left = stack.getMaxDamage() - stack.getDamageValue();
+        tooltip.add(Component.translatable("tooltip.baseblueprint.uses", left, stack.getMaxDamage())
+                .withStyle(left <= 2 ? ChatFormatting.RED : ChatFormatting.GOLD));
         tooltip.add(Component.translatable("tooltip.baseblueprint.summary",
                 Component.translatable("shape.baseblueprint." + s.shape().getSerializedName()), s.width(), s.length(),
                 Component.translatable("floor.baseblueprint." + s.floor().getSerializedName()), s.wallHeight())
