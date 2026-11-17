@@ -19,6 +19,8 @@ An early-game item, crafted from a crafting table and 3 paper, that builds a who
 
 ![Round base with a door and a dome](https://media.forgecdn.net/attachments/2215/599/dome-jpg.jpg)
 ![Inside the dome](https://media.forgecdn.net/attachments/2215/600/inside-jpg.jpg)
+![A four-storey tower with a dome](https://media.forgecdn.net/attachments/2220/839/tower-jpg.jpg)
+![The second storey, with the ladder hatch](https://media.forgecdn.net/attachments/2220/840/tower_inside-jpg.jpg)
 ![A foundation fills the gap on a ledge](https://media.forgecdn.net/attachments/2215/601/foundation-jpg.jpg)
 
 ## ✋ How it plays
@@ -49,8 +51,9 @@ Server config: max size, max wall height, undo, partial builds, container radius
 
 ## Publishing checklist (not part of the page)
 CurseForge project id **1809447** (unlisted, MIT, 3rd-party distribution allowed).
-Files: 1.1.0 = fileID **9642380**, 1.1.1 = fileID **9642554**, 1.1.2 = fileID **9642630** (all awaiting moderation on 2026-11-16).
-Screenshots: uploaded to the project's Media tab (attachments 2215/596-603), regenerate with `./gradlew runShots`.
+Files: 1.1.0 = fileID **9642380**, 1.1.1 = fileID **9642554**, 1.1.2 = fileID **9642630** (approved),
+1.2.0 = fileID **9658157** (sent 2026-11-17).
+Screenshots: uploaded to the project's Media tab (attachments 2215/596-603, towers 2220/839-840), regenerate with `./gradlew runShots`.
 
 1. `./gradlew build` and `./gradlew runGameTestServer`.
 2. Bump `mod_version` in `gradle.properties` and the changelog in `README.md`.
