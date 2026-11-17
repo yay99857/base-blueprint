@@ -13,7 +13,7 @@
   "screen.baseblueprint.length": "Comprimento",
   "screen.baseblueprint.lock": "Travar proporção",
   "screen.baseblueprint.floor": "Piso",
-  "screen.baseblueprint.walls": "Paredes",
+  "screen.baseblueprint.walls": "Altura",
   "screen.baseblueprint.size": "%s × %s blocos",
   "screen.baseblueprint.blocks": "Precisa de %s blocos",
   "screen.baseblueprint.material": "%s: %s / %s",

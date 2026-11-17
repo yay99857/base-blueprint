@@ -7,7 +7,16 @@ import com.baseblueprint.BlueprintConfig;
 import com.baseblueprint.BlueprintSettings;
 import com.baseblueprint.ModComponents;
 import com.baseblueprint.network.UpdateSettingsPayload;
+import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.math.Axis;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.Screen;
@@ -19,6 +28,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
@@ -28,12 +39,19 @@ public class BlueprintScreen extends Screen {
     private static final int PANEL_H = 340;
     private static final int GRID = 128;
     private static final int ROW = 22;
+    private static final int MIN_STOREY_HEIGHT = 2, DEFAULT_STOREY_HEIGHT = 4;
 
     private final InteractionHand hand;
     private BlueprintSettings settings;
     private boolean locked;
     private BaseShape shape;
     private int left, top;
+    /** The 3D view of the preview box: the base turned and tilted, dragged with the mouse, zoomed with the wheel. */
+    private boolean view3d = true;
+    private float yaw = 35, pitch = 30, zoom = 1;
+    private List<BlockPos> blockPos = List.of();
+    private List<BlockState> blockStates = List.of();
+    private int minX, minY, minZ, maxX, maxY, maxZ;
 
     public BlueprintScreen(InteractionHand hand) {
         super(Component.translatable("screen.baseblueprint.title"));
@@ -41,7 +59,33 @@ public class BlueprintScreen extends Screen {
         this.settings = BaseBuilder.settings(heldStack()).clamped();
         this.locked = settings.width() == settings.length();
         this.shape = BaseShape.of(settings);
+        rebuild3d();
     }
+
+    /** Every block of the base with its material, for the 3D view (door on the south side, towards the viewer). */
+    private void rebuild3d() {
+        Player player = net.minecraft.client.Minecraft.getInstance().player;
+        BaseBuilder.Materials m = player == null ? new BaseBuilder.Materials(null, null) : BaseBuilder.materials(player, heldStack());
+        BlockState floor = (m.floor() == null ? Blocks.STONE : m.floor()).defaultBlockState();
+        BlockState walls = m.walls() == null ? floor : m.walls().defaultBlockState();
+        List<BlockPos> pos = new ArrayList<>();
+        List<BlockState> states = new ArrayList<>();
+        minX = minY = minZ = Integer.MAX_VALUE;
+        maxX = maxY = maxZ = Integer.MIN_VALUE;
+        for (BaseShape.Placement p : shape.placements(settings, BlockPos.ZERO, Direction.SOUTH)) {
+            if (pos.size() >= MAX_3D_BLOCKS) break;
+            BlockPos b = p.pos();
+            pos.add(b);
+            states.add(p.part().usesWallMaterial() ? walls : floor);
+            minX = Math.min(minX, b.getX()); maxX = Math.max(maxX, b.getX());
+            minY = Math.min(minY, b.getY()); maxY = Math.max(maxY, b.getY());
+            minZ = Math.min(minZ, b.getZ()); maxZ = Math.max(maxZ, b.getZ());
+        }
+        blockPos = pos;
+        blockStates = states;
+    }
+
+    private static final int MAX_3D_BLOCKS = 12000;
 
     private ItemStack heldStack() {
         Player player = net.minecraft.client.Minecraft.getInstance().player;
@@ -87,10 +131,16 @@ public class BlueprintScreen extends Screen {
                         (b, v) -> update(settings.withFloor(v))));
         y += ROW;
         stepper(x, y, colW, "screen.baseblueprint.walls", () -> settings.wallHeight(),
-                v -> update(settings.withWallHeight(Mth.clamp(v, 0, BlueprintConfig.maxWallHeight()))));
+                v -> update(settings.withWallHeight(Mth.clamp(v, settings.storeys() > 1 ? MIN_STOREY_HEIGHT : 0,
+                        BlueprintConfig.maxWallHeight()))));
         y += ROW;
         stepper(x, y, colW, "screen.baseblueprint.storeys", () -> settings.storeys(),
-                v -> update(settings.withStoreys(Mth.clamp(v, 1, BlueprintSettings.MAX_STOREYS))));
+                v -> {
+                    BlueprintSettings next = settings.withStoreys(Mth.clamp(v, 1, BlueprintSettings.MAX_STOREYS));
+                    // a storey you cannot stand in is no storey: raise low walls to a usable height
+                    if (next.storeys() > 1 && next.wallHeight() < MIN_STOREY_HEIGHT) next = next.withWallHeight(DEFAULT_STOREY_HEIGHT);
+                    update(next);
+                });
         y += ROW;
         addRenderableWidget(CycleButton.onOffBuilder(settings.door())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.door"),
@@ -113,6 +163,11 @@ public class BlueprintScreen extends Screen {
                 .withInitialValue(settings.pick())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.pick"),
                         (b, v) -> update(settings.withPick(v))));
+
+        addRenderableWidget(Button.builder(Component.literal(view3d ? "2D" : "3D"), b -> {
+            view3d = !view3d;
+            b.setMessage(Component.literal(view3d ? "2D" : "3D"));
+        }).bounds(left + 10 + GRID - 22, top + 24 + GRID - 16, 22, 16).build());
 
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                 .bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 28, 100, 20).build());
@@ -139,6 +194,65 @@ public class BlueprintScreen extends Screen {
     private void update(BlueprintSettings next) {
         settings = next.clamped();
         shape = BaseShape.of(settings);
+        rebuild3d();
+    }
+
+    private boolean inPreview(double mx, double my) {
+        return mx >= left + 10 && mx < left + 10 + GRID && my >= top + 24 && my < top + 24 + GRID;
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (super.mouseClicked(mx, my, button)) return true;
+        return inPreview(mx, my);
+    }
+
+    @Override
+    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (view3d && inPreview(mx, my)) {
+            yaw += (float) dx * 2.5f;
+            pitch = Mth.clamp(pitch + (float) dy * 2.5f, -10, 89);
+            return true;
+        }
+        return super.mouseDragged(mx, my, button, dx, dy);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (view3d && inPreview(mx, my)) {
+            zoom = Mth.clamp(zoom * (sy > 0 ? 1.15f : 1 / 1.15f), 0.4f, 6f);
+            return true;
+        }
+        return super.mouseScrolled(mx, my, sx, sy);
+    }
+
+    private void render3d(GuiGraphics g, int gx, int gy) {
+        if (blockPos.isEmpty() || minecraft == null) return;
+        float cx = (minX + maxX + 1) / 2f, cy = (minY + maxY + 1) / 2f, cz = (minZ + maxZ + 1) / 2f;
+        float size = (float) Math.sqrt(Math.pow(maxX - minX + 1, 2) + Math.pow(maxY - minY + 1, 2) + Math.pow(maxZ - minZ + 1, 2));
+        float scale = GRID / size * zoom;
+        var blocks = minecraft.getBlockRenderer();
+        var buffers = g.bufferSource();
+        g.enableScissor(gx, gy, gx + GRID, gy + GRID);
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(gx + GRID / 2f, gy + GRID / 2f, 400);
+        pose.scale(scale, -scale, scale);
+        pose.mulPose(Axis.XP.rotationDegrees(pitch));
+        pose.mulPose(Axis.YP.rotationDegrees(yaw));
+        pose.translate(-cx, -cy, -cz);
+        Lighting.setupFor3DItems();
+        for (int i = 0; i < blockPos.size(); i++) {
+            BlockPos b = blockPos.get(i);
+            pose.pushPose();
+            pose.translate(b.getX(), b.getY(), b.getZ());
+            blocks.renderSingleBlock(blockStates.get(i), pose, buffers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
+                    ModelData.EMPTY, null);
+            pose.popPose();
+        }
+        g.flush();
+        pose.popPose();
+        g.disableScissor();
     }
 
     @Override
@@ -153,7 +267,11 @@ public class BlueprintScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
         g.drawCenteredString(font, title, left + PANEL_W / 2, top + 9, 0xFFFFFFFF);
-        renderGrid(g, left + 10, top + 24);
+        if (view3d && settings.wallHeight() > 0) {
+            render3d(g, left + 10, top + 24);
+        } else {
+            renderGrid(g, left + 10, top + 24);
+        }
 
         Player player = minecraft == null ? null : minecraft.player;
         int need = shape.blockCount(settings);

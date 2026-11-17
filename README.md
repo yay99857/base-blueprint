@@ -61,6 +61,12 @@ Conserta na bigorna com papel.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.2.1
+- Menu com **prévia 3D** da base, com os materiais escolhidos: arraste para girar, role para aproximar. O botão 2D/3D troca pela planta em pixels.
+- "Paredes" virou **"Altura"** (a altura de cada andar). Com mais de 1 andar a altura mínima é 2, e ao subir de 1 para 2 andares
+  uma altura menor que 2 vira 4.
+- O contorno no mundo usa um buffer próprio, para aparecer também com Sodium e Iris.
+
 ### 1.2.0
 - **Andares:** paredes, piso entre os andares e um buraco para a escada; teto ou cúpula no topo. Faz torres.
 - A planta tem **8 usos**: cada base construída gasta um; no criativo não gasta. Conserta na bigorna com papel.

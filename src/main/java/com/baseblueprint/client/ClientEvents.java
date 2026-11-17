@@ -153,7 +153,8 @@ public final class ClientEvents {
 
         Vec3 cam = event.getCamera().getPosition();
         PoseStack pose = event.getPoseStack();
-        MultiBufferSource.BufferSource buffers = Minecraft.getInstance().renderBuffers().bufferSource();
+        // Our own buffer, flushed right here: Sodium/Iris wrap the shared one and may never draw lines put in it.
+        MultiBufferSource.BufferSource buffers = OUTLINE_BUFFERS;
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
@@ -214,6 +215,9 @@ public final class ClientEvents {
         pose.popPose();
         buffers.endBatch(RenderType.lines());
     }
+
+    private static final MultiBufferSource.BufferSource OUTLINE_BUFFERS =
+            MultiBufferSource.immediate(new com.mojang.blaze3d.vertex.ByteBufferBuilder(1 << 18));
 
     @SubscribeEvent
     static void onRenderGui(RenderGuiEvent.Post event) {

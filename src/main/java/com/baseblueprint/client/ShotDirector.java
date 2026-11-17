@@ -159,6 +159,11 @@ public final class ShotDirector {
                 double x = CX + s.sx() + 0.5, z = CZ + s.sz() + 13.5;
                 look(p, x, g + 9, z, CX + s.sx() + 0.5, g, CZ + s.sz() + 0.5);
             }));
+            if (n == 4) {
+                add(30, () -> mc.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));
+                add(20, () -> shot("menu_tower"));
+                add(5, () -> mc.setScreen(null));
+            }
             if (n == 0) {
                 add(60, () -> shot("preview"));
                 add(10, () -> mc.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));

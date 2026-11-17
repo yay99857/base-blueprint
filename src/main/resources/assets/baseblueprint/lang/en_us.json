@@ -13,7 +13,7 @@
   "screen.baseblueprint.length": "Length",
   "screen.baseblueprint.lock": "Lock ratio",
   "screen.baseblueprint.floor": "Floor",
-  "screen.baseblueprint.walls": "Walls",
+  "screen.baseblueprint.walls": "Wall height",
   "screen.baseblueprint.size": "%s × %s blocks",
   "screen.baseblueprint.blocks": "Needs %s blocks",
   "screen.baseblueprint.material": "%s: %s / %s",
