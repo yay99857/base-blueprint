@@ -65,7 +65,7 @@ A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 - Menu com **prévia 3D** da base, com os materiais escolhidos: arraste para girar, role para aproximar. O botão 2D/3D troca pela planta em pixels.
 - "Paredes" virou **"Altura"** (a altura de cada andar). Com mais de 1 andar a altura mínima é 2, e ao subir de 1 para 2 andares
   uma altura menor que 2 vira 4.
-- O contorno no mundo usa um buffer próprio, para aparecer também com Sodium e Iris.
+- O contorno no mundo usa um buffer próprio: correção para ele não aparecer com Sodium e Iris (a confirmar no pack).
 
 ### 1.2.0
 - **Andares:** paredes, piso entre os andares e um buraco para a escada; teto ou cúpula no topo. Faz torres.
