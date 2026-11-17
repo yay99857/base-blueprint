@@ -62,5 +62,7 @@
   "hud.baseblueprint.containers": "Short in the inventory: the rest comes from chests within %s blocks and your backpack",
   "screen.baseblueprint.material_floor_free": "Floor: %s (creative)",
   "screen.baseblueprint.material_walls_free": "Walls and roof: %s (creative)",
-  "tooltip.baseblueprint.uses": "Uses left: %s / %s"
+  "tooltip.baseblueprint.uses": "Uses left: %s / %s",
+  "screen.baseblueprint.storeys": "Storeys",
+  "tooltip.baseblueprint.storeys": "%s storeys, %s blocks each"
 }

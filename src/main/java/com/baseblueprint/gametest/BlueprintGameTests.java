@@ -337,4 +337,29 @@ public class BlueprintGameTests {
         helper.assertValueEqual(free.getDamageValue(), 0, "creative wore the blueprint");
         helper.succeed();
     }
+
+    /** Storeys: walls of the chosen height, a floor between storeys with a 1x1 hatch, the roof on top. */
+    @GameTest(template = EMPTY)
+    public static void storeysStackFloorsAndWalls(GameTestHelper helper) {
+        BlueprintSettings s = new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 2,
+                true, BlueprintSettings.Roof.FLAT, false, BlueprintSettings.Pick.FLOOR, 3);
+        BaseShape shape = BaseShape.of(s);
+        // ground floor 25, walls 3 x 16 x 2 (minus the 1x2 door), two upper floors of 25 minus the hatch, roof 25
+        helper.assertValueEqual(shape.blockCount(s), 25 + 3 * 32 - 2 + 2 * 24 + 25, "blocks for three storeys");
+        java.util.Map<BlockPos, BaseShape.Part> at = new java.util.HashMap<>();
+        for (BaseShape.Placement p : shape.placements(s, BlockPos.ZERO, net.minecraft.core.Direction.SOUTH)) at.put(p.pos(), p.part());
+        int x0 = BaseShape.startX(s, BlockPos.ZERO), z0 = BaseShape.startZ(s, BlockPos.ZERO);
+        // upper floors at y = 3 and 6, roof at 9; the hatch is on the north side, opposite the door
+        for (int y : new int[]{3, 6}) {
+            helper.assertValueEqual(at.get(new BlockPos(x0 + 2, y, z0 + 2)), BaseShape.Part.FLOOR, "floor of the storey at " + y);
+            helper.assertValueEqual(at.get(new BlockPos(x0, y, z0 + 2)), BaseShape.Part.WALL, "wall through the floor at " + y);
+            helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, y, z0 + 1)), "no hatch at " + y);
+        }
+        helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, 4, z0 + 2)), "storey not hollow");
+        helper.assertValueEqual(at.get(new BlockPos(x0 + 2, 9, z0 + 2)), BaseShape.Part.ROOF, "roof on top");
+        // the door only on the ground storey
+        helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, 1, z0 + 4)), "no door on the ground storey");
+        helper.assertValueEqual(at.get(new BlockPos(x0 + 2, 4, z0 + 4)), BaseShape.Part.WALL, "door on an upper storey");
+        helper.succeed();
+    }
 }

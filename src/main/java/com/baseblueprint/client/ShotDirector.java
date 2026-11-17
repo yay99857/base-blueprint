@@ -85,7 +85,9 @@ public final class ShotDirector {
                 new Scene(-18, 18, stack(new BlueprintSettings(BlueprintSettings.Shape.HEXAGON, 15, 11, BlueprintSettings.Floor.FILLED, 3,
                         true, BlueprintSettings.Roof.NONE, false, BlueprintSettings.Pick.FLOOR), Blocks.SMOOTH_STONE, Blocks.COBBLESTONE)),
                 new Scene(18, 18, stack(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 9, 9, BlueprintSettings.Floor.FILLED, 3,
-                        true, BlueprintSettings.Roof.FLAT, true, BlueprintSettings.Pick.FLOOR), Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS)));
+                        true, BlueprintSettings.Roof.FLAT, true, BlueprintSettings.Pick.FLOOR), Blocks.STONE_BRICKS, Blocks.SPRUCE_PLANKS)),
+                new Scene(0, -44, stack(new BlueprintSettings(BlueprintSettings.Shape.CIRCLE, 11, 11, BlueprintSettings.Floor.FILLED, 4,
+                        true, BlueprintSettings.Roof.DOME, false, BlueprintSettings.Pick.FLOOR, 4), Blocks.SPRUCE_PLANKS, Blocks.STONE_BRICKS)));
     }
 
     private static void flatten(ServerPlayer p) {
@@ -170,18 +172,20 @@ public final class ShotDirector {
             server(p -> p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY));
         });
         // close-ups: camera south-east of each base, looking at its centre
-        String[] names = {"dome", "octagon", "hexagon", "foundation"};
+        String[] names = {"dome", "octagon", "hexagon", "foundation", "tower"};
         for (int i = 0; i < scenes.size(); i++) {
             Scene s = scenes.get(i);
             String name = names[i];
-            double ox = i == 3 ? 13 : 7, oy = i == 3 ? 6 : 6, oz = i == 3 ? 15 : 16;
-            add(20, () -> server(p -> look(p, CX + s.sx() + ox, g + oy, CZ + s.sz() + oz, CX + s.sx() + 0.5, g + 1, CZ + s.sz() + 0.5)));
+            double ox = i == 3 ? 13 : i == 4 ? 16 : 7, oy = i == 3 ? 6 : i == 4 ? 10 : 6, oz = i == 3 ? 15 : i == 4 ? 30 : 16;
+            add(20, () -> server(p -> look(p, CX + s.sx() + ox, g + oy, CZ + s.sz() + oz, CX + s.sx() + 0.5, g + (name.equals("tower") ? 13 : 1), CZ + s.sz() + 0.5)));
             add(60, () -> shot(name));
         }
         // inside the dome, looking at the door from the back wall
         add(1, () -> server(p -> cmd(p, "effect give @s minecraft:night_vision infinite 0 true")));
         add(20, () -> server(p -> look(p, CX - 18 + 0.5, g + 1, CZ - 18 - 4.5, CX - 18 + 0.5, g + 2.5, CZ - 18 + 7)));
         add(60, () -> shot("inside"));
+        add(20, () -> server(p -> look(p, CX + 0.5, g + 6, CZ - 44 + 3.5, CX + 0.5, g + 5, CZ - 44 - 3)));
+        add(60, () -> shot("tower_inside"));
         add(20, () -> server(p -> look(p, CX + 0.5, g + 26, CZ + 50, CX + 0.5, g, CZ + 2)));
         add(80, () -> shot("overview"));
         add(40, () -> LOG.info("shots done"));

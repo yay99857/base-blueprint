@@ -136,7 +136,8 @@ public final class ClientEvents {
         Preview p = preview;
         if (p == null) return;
         BlueprintSettings s = p.settings();
-        int layers = BaseShape.wallStart(s) + s.wallHeight();
+        int storeys = s.effectiveStoreys();
+        int layers = BaseShape.wallStart(s) + storeys * s.wallHeight() + (storeys - 1);
         if (layers == 0) return;
 
         float r, g, b;
@@ -165,6 +166,13 @@ public final class ClientEvents {
         int roofBoxes = 0;
         for (BaseShape.Placement placement : p.placements()) {
             BlockPos pos = placement.pos();
+            boolean slab = storeys > 1 && placement.part() != BaseShape.Part.ROOF && shape.edge(pos.getX() - x0, pos.getZ() - z0)
+                    && (pos.getY() - y0 - BaseShape.wallStart(s)) % (s.wallHeight() + 1) == s.wallHeight();
+            if (slab && roofBoxes++ < MAX_ROOF_BOXES) {
+                // the floor between two storeys, as a ring on the wall
+                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, pos.getY() + e, pos.getZ() + e,
+                        pos.getX() + 1 - e, pos.getY() + 1 - e, pos.getZ() + 1 - e, r, g, b, 0.5f);
+            }
             if (placement.part() == BaseShape.Part.ROOF) {
                 if (s.effectiveRoof() == BlueprintSettings.Roof.FLAT && !shape.edge(pos.getX() - x0, pos.getZ() - z0)) continue;
                 if (roofBoxes++ >= MAX_ROOF_BOXES) continue;

@@ -62,5 +62,7 @@
   "hud.baseblueprint.containers": "Faltam blocos no inventário: o resto vem de baús a até %s blocos e da mochila",
   "screen.baseblueprint.material_floor_free": "Piso: %s (criativo)",
   "screen.baseblueprint.material_walls_free": "Paredes e teto: %s (criativo)",
-  "tooltip.baseblueprint.uses": "Usos restantes: %s / %s"
+  "tooltip.baseblueprint.uses": "Usos restantes: %s / %s",
+  "screen.baseblueprint.storeys": "Andares",
+  "tooltip.baseblueprint.storeys": "%s andares de %s blocos"
 }

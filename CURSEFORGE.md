@@ -12,6 +12,7 @@ An early-game item, crafted from a crafting table and 3 paper, that builds a who
 - **Shapes:** circle (the same rule as pixel circle generators), square, octagon and hexagon, any width and length.
 - **Floor:** filled, outline only, or none.
 - **Walls** of any height, with an automatic **door** (a 1×2 opening in the wall facing you).
+- **Storeys:** stack up to 16 floors, each as tall as the walls, with a floor between them and a 1×1 hatch for a ladder. Build towers.
 - **Roof:** flat, or a hollow **dome** over round bases.
 - **Foundation** on uneven ground: fills under the floor down to the terrain.
 - **Two materials:** one for the floor, another for the walls and roof (stone floor, glass walls...).
@@ -39,7 +40,7 @@ Server config: max size, max wall height, undo, partial builds, container radius
 **Construa a primeira base com um clique: escolha a forma e o tamanho, veja a prévia no mundo e coloque com blocos do inventário, da mochila e dos baús por perto.**
 
 - Formas: círculo, quadrado, octógono e hexágono, de qualquer tamanho.
-- Piso cheio, só contorno ou sem piso; paredes de qualquer altura com **porta** automática; **teto** plano ou **cúpula**; **fundação** em terreno irregular.
+- Piso cheio, só contorno ou sem piso; paredes de qualquer altura com **porta** automática; **andares** (torres); **teto** plano ou **cúpula**; **fundação** em terreno irregular.
 - Material separado para o piso e para as paredes e o teto.
 - Cada planta constrói **8 bases** (conserta na bigorna com papel).
 - Prévia no mundo (verde = dá para construir, vermelho = ocupado), desfazer salvo com o mundo, respeita proteções de claim.

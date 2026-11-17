@@ -82,6 +82,10 @@ public class BlueprintItem extends Item {
                 Component.translatable("shape.baseblueprint." + s.shape().getSerializedName()), s.width(), s.length(),
                 Component.translatable("floor.baseblueprint." + s.floor().getSerializedName()), s.wallHeight())
                 .withStyle(ChatFormatting.GRAY));
+        if (s.effectiveStoreys() > 1) {
+            tooltip.add(Component.translatable("tooltip.baseblueprint.storeys", s.effectiveStoreys(), s.wallHeight())
+                    .withStyle(ChatFormatting.GRAY));
+        }
         Block material = stack.get(ModComponents.MATERIAL.get());
         tooltip.add(material != null
                 ? Component.translatable("tooltip.baseblueprint.material", material.getName()).withStyle(ChatFormatting.AQUA)

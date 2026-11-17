@@ -148,16 +148,32 @@ public final class BaseShape {
         }
         int base = wallStart(s);
         boolean[] doorway = s.door() && doorSide != null && s.wallHeight() > 0 ? doorway(doorSide) : null;
-        for (int h = 0; h < s.wallHeight(); h++) {
-            for (int z = 0; z < length; z++) {
-                for (int x = 0; x < width; x++) {
-                    if (!edge(x, z)) continue;
-                    if (doorway != null && h < 2 && doorway[z * width + x]) continue;
-                    out.add(new Placement(new BlockPos(x0 + x, y + base + h, z0 + z), Part.WALL));
+        int storeys = s.effectiveStoreys();
+        int hatch = storeys > 1 ? hatch(doorSide == null ? Direction.SOUTH : doorSide) : -1;
+        int wallY = y + base;
+        for (int k = 0; k < storeys; k++) {
+            if (k > 0) {
+                // the floor between storeys: the wall goes on through its edge, the rest is floor with a hatch
+                for (int z = 0; z < length; z++) {
+                    for (int x = 0; x < width; x++) {
+                        if (!filled(x, z) || z * width + x == hatch) continue;
+                        out.add(new Placement(new BlockPos(x0 + x, wallY, z0 + z), edge(x, z) ? Part.WALL : Part.FLOOR));
+                    }
+                }
+                wallY++;
+            }
+            for (int h = 0; h < s.wallHeight(); h++) {
+                for (int z = 0; z < length; z++) {
+                    for (int x = 0; x < width; x++) {
+                        if (!edge(x, z)) continue;
+                        if (k == 0 && doorway != null && h < 2 && doorway[z * width + x]) continue;
+                        out.add(new Placement(new BlockPos(x0 + x, wallY + h, z0 + z), Part.WALL));
+                    }
                 }
             }
+            wallY += s.wallHeight();
         }
-        int roofY = y + base + s.wallHeight();
+        int roofY = wallY;
         switch (s.effectiveRoof()) {
             case FLAT -> {
                 for (int z = 0; z < length; z++) {
@@ -175,6 +191,26 @@ public final class BaseShape {
             }
         }
         return out;
+    }
+
+    /**
+     * The 1×1 opening left in each upper floor for a ladder: the first inside cell next to the wall opposite the
+     * door, so the ladder goes up that wall. -1 when the footprint has no inside.
+     */
+    private int hatch(Direction doorSide) {
+        int x, z, dx, dz;
+        switch (doorSide.getOpposite()) {
+            case EAST -> { x = width - 1; z = length / 2; dx = -1; dz = 0; }
+            case WEST -> { x = 0; z = length / 2; dx = 1; dz = 0; }
+            case NORTH -> { x = width / 2; z = 0; dx = 0; dz = 1; }
+            default -> { x = width / 2; z = length - 1; dx = 0; dz = -1; }
+        }
+        while (x >= 0 && z >= 0 && x < width && z < length) {
+            if (filled(x, z) && !edge(x, z)) return z * width + x;
+            x += dx;
+            z += dz;
+        }
+        return -1;
     }
 
     /** Height of the dome in layers: half the smaller side, so a circle gets a half sphere. */

@@ -14,6 +14,7 @@ tamanho que você escolher, usando blocos do seu inventário, da sua mochila e d
 | ![Prévia no mundo antes de construir](docs/screenshots/preview.jpg) | ![Base redonda com cúpula e porta](docs/screenshots/dome.jpg) |
 | ![Dentro da cúpula](docs/screenshots/inside.jpg) | ![Fundação num desnível](docs/screenshots/foundation.jpg) |
 | ![Octógono com teto plano](docs/screenshots/octagon.jpg) | ![Hexágono sem teto](docs/screenshots/hexagon.jpg) |
+| ![Torre de 4 andares com cúpula](docs/screenshots/tower.jpg) | ![Segundo andar da torre, com o buraco da escada](docs/screenshots/tower_inside.jpg) |
 
 ## Receita
 Sem forma: **Mesa de trabalho + 3 Papéis**.
@@ -24,14 +25,16 @@ Conserta na bigorna com papel.
 ## Como usar
 | Ação | O que faz |
 |---|---|
-| Clique direito no ar ou tecla **N** | Abre o menu: forma (círculo, quadrado, octógono, hexágono), largura, comprimento, piso (cheio / contorno / sem piso), altura das paredes, porta, teto (nenhum / plano / cúpula), fundação e o que o Shift-clique escolhe (piso ou paredes). Tem prévia em pixels. Shift nos botões +/- muda de 5 em 5 |
+| Clique direito no ar ou tecla **N** | Abre o menu: forma (círculo, quadrado, octógono, hexágono), largura, comprimento, piso (cheio / contorno / sem piso), altura das paredes, **andares**, porta, teto (nenhum / plano / cúpula), fundação e o que o Shift-clique escolhe (piso ou paredes). Tem prévia em pixels. Shift nos botões +/- muda de 5 em 5 |
 | Shift + clique direito num bloco | Escolhe esse bloco como material **do piso** ou **das paredes e do teto**, conforme a opção "Shift-clique" do menu. Sem material de parede, as paredes usam o do piso |
 | Bloco na mão secundária | Tem prioridade e vale para tudo |
 | Segurar a planta e mirar num bloco | Mostra o contorno da base no mundo (verde = blocos suficientes, vermelho = faltam) e a contagem abaixo da mira |
 | Clique direito num bloco | Constrói a base centrada ali |
 | Shift + clique direito no ar | Desfaz a última base e devolve os blocos |
 
-- **Porta:** abre um vão de 1×2 no meio da parede virada para você.
+- **Andares:** empilha quantos andares quiser (até 16), cada um com a altura das paredes e um piso entre eles, com um
+  buraco de 1×1 junto à parede oposta à porta para você pôr uma escada. O teto ou a cúpula vai no topo. Dá para fazer torres.
+- **Porta:** abre um vão de 1×2 no meio da parede virada para você, só no térreo.
 - **Teto:** plano (cobre toda a base uma camada acima das paredes) ou **cúpula** (meia esfera oca sobre a base; só no círculo, nas outras formas vira teto plano). Precisa de paredes.
 - **Fundação:** em terreno mais baixo, preenche embaixo do piso até o chão, com o material do piso (até `maxFoundation` blocos).
 - Os blocos vêm do **inventário**, de **mochilas e outros recipientes carregados** nele e de **baús a até `containerRadius` blocos** que você pode abrir. Se faltar, nada é construído e a mensagem diz quantos faltam. No criativo é de graça.
@@ -59,6 +62,7 @@ A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
 ### 1.2.0
+- **Andares:** paredes, piso entre os andares e um buraco para a escada; teto ou cúpula no topo. Faz torres.
 - A planta tem **8 usos**: cada base construída gasta um; no criativo não gasta. Conserta na bigorna com papel.
   A dica do item mostra os usos restantes.
 

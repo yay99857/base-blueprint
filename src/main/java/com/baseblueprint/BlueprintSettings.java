@@ -16,14 +16,21 @@ import net.minecraft.util.StringRepresentable;
  * @param roof       nothing, a flat roof, or a dome (round shapes only) on top of the walls
  * @param foundation fill the gap under the floor down to the ground, up to {@link BlueprintConfig#maxFoundation()}
  * @param pick       what sneak + right-click on a block sets: the floor material or the wall (and roof) material
+ * @param storeys    floors stacked on top of each other, each {@code wallHeight} tall with a floor between them
  */
 public record BlueprintSettings(Shape shape, int width, int length, Floor floor, int wallHeight,
-                                boolean door, Roof roof, boolean foundation, Pick pick) {
+                                boolean door, Roof roof, boolean foundation, Pick pick, int storeys) {
     public static final BlueprintSettings DEFAULT = new BlueprintSettings(Shape.CIRCLE, 15, 15, Floor.FILLED, 0);
+
+    /** The 1.1 settings: one storey. */
+    public BlueprintSettings(Shape shape, int width, int length, Floor floor, int wallHeight,
+                             boolean door, Roof roof, boolean foundation, Pick pick) {
+        this(shape, width, length, floor, wallHeight, door, roof, foundation, pick, 1);
+    }
 
     /** The 1.0 settings: no door, no roof, no foundation. */
     public BlueprintSettings(Shape shape, int width, int length, Floor floor, int wallHeight) {
-        this(shape, width, length, floor, wallHeight, false, Roof.NONE, false, Pick.FLOOR);
+        this(shape, width, length, floor, wallHeight, false, Roof.NONE, false, Pick.FLOOR, 1);
     }
 
     public enum Shape implements StringRepresentable {
@@ -90,6 +97,8 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
         }
     }
 
+    public static final int MAX_STOREYS = 16;
+
     public static final Codec<BlueprintSettings> CODEC = RecordCodecBuilder.create(i -> i.group(
             Shape.CODEC.fieldOf("shape").forGetter(BlueprintSettings::shape),
             Codec.intRange(1, 256).fieldOf("width").forGetter(BlueprintSettings::width),
@@ -99,7 +108,8 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
             Codec.BOOL.optionalFieldOf("door", false).forGetter(BlueprintSettings::door),
             Roof.CODEC.optionalFieldOf("roof", Roof.NONE).forGetter(BlueprintSettings::roof),
             Codec.BOOL.optionalFieldOf("foundation", false).forGetter(BlueprintSettings::foundation),
-            Pick.CODEC.optionalFieldOf("pick", Pick.FLOOR).forGetter(BlueprintSettings::pick)
+            Pick.CODEC.optionalFieldOf("pick", Pick.FLOOR).forGetter(BlueprintSettings::pick),
+            Codec.intRange(1, MAX_STOREYS).optionalFieldOf("storeys", 1).forGetter(BlueprintSettings::storeys)
     ).apply(i, BlueprintSettings::new));
 
     private static <E extends Enum<E>> StreamCodec<ByteBuf, E> enumCodec(E[] values) {
@@ -107,12 +117,13 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
     }
 
     /** The options added in 1.1, grouped so the stream codec stays within composite's arity. */
-    private record Extras(boolean door, Roof roof, boolean foundation, Pick pick) {
+    private record Extras(boolean door, Roof roof, boolean foundation, Pick pick, int storeys) {
         static final StreamCodec<ByteBuf, Extras> CODEC = StreamCodec.composite(
                 ByteBufCodecs.BOOL, Extras::door,
                 enumCodec(Roof.values()), Extras::roof,
                 ByteBufCodecs.BOOL, Extras::foundation,
                 enumCodec(Pick.values()), Extras::pick,
+                ByteBufCodecs.VAR_INT, Extras::storeys,
                 Extras::new);
     }
 
@@ -122,15 +133,16 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
             ByteBufCodecs.VAR_INT, BlueprintSettings::length,
             enumCodec(Floor.values()), BlueprintSettings::floor,
             ByteBufCodecs.VAR_INT, BlueprintSettings::wallHeight,
-            Extras.CODEC, s -> new Extras(s.door, s.roof, s.foundation, s.pick),
+            Extras.CODEC, s -> new Extras(s.door, s.roof, s.foundation, s.pick, s.storeys),
             (shape, width, length, floor, wallHeight, extras) -> new BlueprintSettings(shape, width, length, floor,
-                    wallHeight, extras.door(), extras.roof(), extras.foundation(), extras.pick()));
+                    wallHeight, extras.door(), extras.roof(), extras.foundation(), extras.pick(), extras.storeys()));
 
     /** Clamps every value to the server limits, so a modified client cannot ask for a 10 000-block wall. */
     public BlueprintSettings clamped() {
         int max = BlueprintConfig.maxSize();
         return new BlueprintSettings(shape, Mth.clamp(width, 1, max), Mth.clamp(length, 1, max), floor,
-                Mth.clamp(wallHeight, 0, BlueprintConfig.maxWallHeight()), door, roof, foundation, pick);
+                Mth.clamp(wallHeight, 0, BlueprintConfig.maxWallHeight()), door, roof, foundation, pick,
+                Mth.clamp(storeys, 1, MAX_STOREYS));
     }
 
     /** The roof actually built: none without walls, and a dome only on a circle (other shapes get a flat roof). */
@@ -140,38 +152,47 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
     }
 
     public BlueprintSettings withShape(Shape s) {
-        return new BlueprintSettings(s, width, length, floor, wallHeight, door, roof, foundation, pick);
+        return new BlueprintSettings(s, width, length, floor, wallHeight, door, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withWidth(int w) {
-        return new BlueprintSettings(shape, w, length, floor, wallHeight, door, roof, foundation, pick);
+        return new BlueprintSettings(shape, w, length, floor, wallHeight, door, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withLength(int l) {
-        return new BlueprintSettings(shape, width, l, floor, wallHeight, door, roof, foundation, pick);
+        return new BlueprintSettings(shape, width, l, floor, wallHeight, door, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withFloor(Floor f) {
-        return new BlueprintSettings(shape, width, length, f, wallHeight, door, roof, foundation, pick);
+        return new BlueprintSettings(shape, width, length, f, wallHeight, door, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withWallHeight(int h) {
-        return new BlueprintSettings(shape, width, length, floor, h, door, roof, foundation, pick);
+        return new BlueprintSettings(shape, width, length, floor, h, door, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withDoor(boolean d) {
-        return new BlueprintSettings(shape, width, length, floor, wallHeight, d, roof, foundation, pick);
+        return new BlueprintSettings(shape, width, length, floor, wallHeight, d, roof, foundation, pick, storeys);
     }
 
     public BlueprintSettings withRoof(Roof r) {
-        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, r, foundation, pick);
+        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, r, foundation, pick, storeys);
     }
 
     public BlueprintSettings withFoundation(boolean f) {
-        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, roof, f, pick);
+        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, roof, f, pick, storeys);
+    }
+
+    public BlueprintSettings withStoreys(int n) {
+        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, roof, foundation, pick, n);
+    }
+
+    /** Storeys actually built: one without walls. */
+    public int effectiveStoreys() {
+        return wallHeight <= 0 ? 1 : storeys;
     }
 
     public BlueprintSettings withPick(Pick p) {
-        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, roof, foundation, p);
+        return new BlueprintSettings(shape, width, length, floor, wallHeight, door, roof, foundation, p, storeys);
     }
 }

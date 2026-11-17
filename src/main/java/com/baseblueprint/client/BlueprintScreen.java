@@ -25,7 +25,7 @@ import java.util.function.IntSupplier;
 /** Shape, size, floor and wall menu, with a pixel preview of the footprint like a pixel circle generator. */
 public class BlueprintScreen extends Screen {
     private static final int PANEL_W = 300;
-    private static final int PANEL_H = 318;
+    private static final int PANEL_H = 340;
     private static final int GRID = 128;
     private static final int ROW = 22;
 
@@ -88,6 +88,9 @@ public class BlueprintScreen extends Screen {
         y += ROW;
         stepper(x, y, colW, "screen.baseblueprint.walls", () -> settings.wallHeight(),
                 v -> update(settings.withWallHeight(Mth.clamp(v, 0, BlueprintConfig.maxWallHeight()))));
+        y += ROW;
+        stepper(x, y, colW, "screen.baseblueprint.storeys", () -> settings.storeys(),
+                v -> update(settings.withStoreys(Mth.clamp(v, 1, BlueprintSettings.MAX_STOREYS))));
         y += ROW;
         addRenderableWidget(CycleButton.onOffBuilder(settings.door())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.door"),
@@ -154,7 +157,7 @@ public class BlueprintScreen extends Screen {
 
         Player player = minecraft == null ? null : minecraft.player;
         int need = shape.blockCount(settings);
-        int y = top + 26 + ROW * 10 + 4;
+        int y = top + 26 + ROW * 11 + 4;
         g.drawString(font, Component.translatable("screen.baseblueprint.size", settings.width(), settings.length()),
                 left + 10, top + 24 + GRID + 6, 0xFFB8D4F0, false);
         g.drawString(font, Component.translatable("screen.baseblueprint.blocks", need), left + 10, top + 24 + GRID + 17,
