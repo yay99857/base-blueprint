@@ -62,6 +62,9 @@ Conserta na bigorna com papel.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.3.1
+- Tradução para o espanhol (es_es e as variantes da América Latina).
+
 ### 1.3.0
 - Botão **Construir com Bubie** no menu, quando o mod Bubie está instalado: o Bubie Construtor levanta a base onde você
   está olhando. Para outros mods: o evento `com.baseblueprint.api.HelperBuildEvent` (no barramento da NeoForge) recebe o
