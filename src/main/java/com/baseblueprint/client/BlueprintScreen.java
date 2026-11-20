@@ -169,8 +169,16 @@ public class BlueprintScreen extends Screen {
             b.setMessage(Component.literal(view3d ? "2D" : "3D"));
         }).bounds(left + 10 + GRID - 22, top + 24 + GRID - 16, 22, 16).build());
 
-        addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
-                .bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 28, 100, 20).build());
+        if (net.neoforged.fml.ModList.get().isLoaded("bubie")) {
+            // a helper (the Bubie mod's Builder) can build it instead: Done moves right to make room
+            addRenderableWidget(Button.builder(Component.translatable("screen.baseblueprint.helper"), b -> askHelper())
+                    .bounds(left + PANEL_W / 2 - 134, top + PANEL_H - 28, 130, 20).build());
+            addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+                    .bounds(left + PANEL_W / 2 + 4, top + PANEL_H - 28, 100, 20).build());
+        } else {
+            addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
+                    .bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 28, 100, 20).build());
+        }
     }
 
     /** A "label  [-] value [+]" row; shift changes the value by 5. */
@@ -345,6 +353,22 @@ public class BlueprintScreen extends Screen {
             }
         }
         g.pose().popPose();
+    }
+
+    /** "Build with Bubie": the base goes on the block the player looks at (or where they stand), built by a helper. */
+    private void askHelper() {
+        Player player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) return;
+        java.util.Optional<BlockPos> clicked = java.util.Optional.empty();
+        Direction face = Direction.UP;
+        if (player.pick(48, 0, false) instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            clicked = java.util.Optional.of(hit.getBlockPos());
+            face = hit.getDirection();
+        }
+        PacketDistributor.sendToServer(new com.baseblueprint.network.HelperBuildPayload(hand == InteractionHand.MAIN_HAND,
+                settings, clicked, face));
+        onClose();
     }
 
     @Override

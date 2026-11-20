@@ -64,5 +64,7 @@
   "screen.baseblueprint.material_walls_free": "Walls and roof: %s (creative)",
   "tooltip.baseblueprint.uses": "Uses left: %s / %s",
   "screen.baseblueprint.storeys": "Storeys",
-  "tooltip.baseblueprint.storeys": "%s storeys, %s blocks each"
+  "tooltip.baseblueprint.storeys": "%s storeys, %s blocks each",
+  "screen.baseblueprint.helper": "Build with Bubie",
+  "message.baseblueprint.no_helper": "No Bubie of yours nearby to build it (within 32 blocks)"
 }

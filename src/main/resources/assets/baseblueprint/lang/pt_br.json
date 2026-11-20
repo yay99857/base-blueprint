@@ -64,5 +64,7 @@
   "screen.baseblueprint.material_walls_free": "Paredes e teto: %s (criativo)",
   "tooltip.baseblueprint.uses": "Usos restantes: %s / %s",
   "screen.baseblueprint.storeys": "Andares",
-  "tooltip.baseblueprint.storeys": "%s andares de %s blocos"
+  "tooltip.baseblueprint.storeys": "%s andares de %s blocos",
+  "screen.baseblueprint.helper": "Construir com Bubie",
+  "message.baseblueprint.no_helper": "Nenhum Bubie seu por perto para construir (até 32 blocos)"
 }

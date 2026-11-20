@@ -31,6 +31,7 @@ Conserta na bigorna com papel.
 | Segurar a planta e mirar num bloco | Mostra o contorno da base no mundo (verde = blocos suficientes, vermelho = faltam) e a contagem abaixo da mira |
 | Clique direito num bloco | Constrói a base centrada ali |
 | Shift + clique direito no ar | Desfaz a última base e devolve os blocos |
+| **Construir com Bubie** (no menu, com o mod Bubie) | Entrega a planta ao seu Bubie mais próximo (até 32 blocos), que constrói a base onde você está olhando, com os blocos do baú dele. Não gasta uso da planta |
 
 - **Andares:** empilha quantos andares quiser (até 16), cada um com a altura das paredes e um piso entre eles, com um
   buraco de 1×1 junto à parede oposta à porta para você pôr uma escada. O teto ou a cúpula vai no topo. Dá para fazer torres.
@@ -61,6 +62,11 @@ Conserta na bigorna com papel.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.3.0
+- Botão **Construir com Bubie** no menu, quando o mod Bubie está instalado: o Bubie Construtor levanta a base onde você
+  está olhando. Para outros mods: o evento `com.baseblueprint.api.HelperBuildEvent` (no barramento da NeoForge) recebe o
+  pedido; quem aceita chama `accept(mensagem)`.
+
 ### 1.2.1
 - Menu com **prévia 3D** da base, com os materiais escolhidos: arraste para girar, role para aproximar. O botão 2D/3D troca pela planta em pixels.
 - "Paredes" virou **"Altura"** (a altura de cada andar). Com mais de 1 andar a altura mínima é 2, e ao subir de 1 para 2 andares
