@@ -65,6 +65,12 @@
   "tooltip.baseblueprint.uses": "Uses left: %s / %s",
   "screen.baseblueprint.storeys": "Storeys",
   "tooltip.baseblueprint.storeys": "%s storeys, %s blocks each",
-  "screen.baseblueprint.helper": "Build with Bubie",
+  "screen.baseblueprint.builder": "Built by",
+  "builder.baseblueprint.you": "You",
+  "builder.baseblueprint.helper": "Bubie",
+  "screen.baseblueprint.builder.you_tip": "Right-click a block and the base is built at once, with your blocks.",
+  "screen.baseblueprint.builder.helper_tip": "Right-click a block and your nearest Bubie builds the base there, block by block, with the blocks in its chest.",
+  "hud.baseblueprint.helper": "Right-click: your Bubie builds it here",
+  "hud.baseblueprint.helper_count": "%s × %s from its chest",
   "message.baseblueprint.no_helper": "No Bubie of yours nearby to build it (within 32 blocks)"
 }

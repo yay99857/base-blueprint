@@ -35,9 +35,7 @@ public class BaseBlueprint {
             }
         });
         modBus.addListener((RegisterPayloadHandlersEvent event) -> event.registrar("1")
-                .playToServer(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.STREAM_CODEC, UpdateSettingsPayload::handle)
-                .playToServer(com.baseblueprint.network.HelperBuildPayload.TYPE,
-                        com.baseblueprint.network.HelperBuildPayload.STREAM_CODEC, com.baseblueprint.network.HelperBuildPayload::handle));
+                .playToServer(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.STREAM_CODEC, UpdateSettingsPayload::handle));
 
     }
 

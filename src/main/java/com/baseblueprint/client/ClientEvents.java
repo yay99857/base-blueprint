@@ -50,6 +50,11 @@ public final class ClientEvents {
     private record Preview(BlueprintSettings settings, BaseShape shape, BlockPos origin, @Nullable Block block,
                            Map<Block, int[]> counts, List<BlockPos> blocked, List<BaseShape.Placement> placements,
                            Direction doorSide, boolean creative) {
+        /** A helper (Bubie) will build it where the player clicks, with the blocks of its own chest. */
+        boolean helper() {
+            return settings.helper() && com.baseblueprint.api.HelperBuildEvent.available();
+        }
+
         /** Enough of every block in the inventory alone (the client cannot see containers). */
         boolean enough() {
             if (creative) return true;
@@ -143,6 +148,8 @@ public final class ClientEvents {
         float r, g, b;
         if (p.block() == null) {
             r = 1.0f; g = 0.85f; b = 0.3f;
+        } else if (p.helper()) {
+            r = 0.96f; g = 0.75f; b = 0.41f; // Bubie's amber: it is the Bubie that will build this
         } else if (p.buildable()) {
             r = 0.35f; g = 0.95f; b = 0.45f;
         } else if (p.maybeFromContainers()) {
@@ -235,6 +242,16 @@ public final class ClientEvents {
             y += 11;
             g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW),
                     cx, y, 0xFFFFFFFF);
+        } else if (p.helper()) {
+            y += 11;
+            g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.helper").withStyle(ChatFormatting.GOLD),
+                    cx, y, 0xFFFFFFFF);
+            // what the Bubie will take from its chest
+            for (Map.Entry<Block, int[]> entry : p.counts().entrySet()) {
+                y += 11;
+                g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.helper_count", entry.getValue()[0],
+                        entry.getKey().getName()).withStyle(ChatFormatting.GRAY), cx, y, 0xFFFFFFFF);
+            }
         } else {
             // one line per block: floor, and walls when they differ
             for (Map.Entry<Block, int[]> entry : p.counts().entrySet()) {
@@ -255,7 +272,7 @@ public final class ClientEvents {
         }
         y -= 11; // the blocked line below goes right after the last one
         if (!p.blocked().isEmpty() && p.block() != null) {
-            boolean partial = BlueprintConfig.allowPartial();
+            boolean partial = BlueprintConfig.allowPartial() || p.helper(); // a helper just skips what is in the way
             g.drawCenteredString(mc.font, Component.translatable(partial ? "hud.baseblueprint.blocked_partial"
                     : "hud.baseblueprint.blocked", p.blocked().size())
                     .withStyle(partial ? ChatFormatting.GRAY : ChatFormatting.RED), cx, y + 22, 0xFFFFFFFF);

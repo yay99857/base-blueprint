@@ -31,7 +31,7 @@ Conserta na bigorna com papel.
 | Segurar a planta e mirar num bloco | Mostra o contorno da base no mundo (verde = blocos suficientes, vermelho = faltam) e a contagem abaixo da mira |
 | Clique direito num bloco | Constrói a base centrada ali |
 | Shift + clique direito no ar | Desfaz a última base e devolve os blocos |
-| **Construir com Bubie** (no menu, com o mod Bubie) | Entrega a planta ao seu Bubie mais próximo (até 32 blocos), que constrói a base onde você está olhando, com os blocos do baú dele. Não gasta uso da planta |
+| **Quem constrói: Bubie** (no menu, com o mod Bubie) | O clique direito num bloco, com a mesma prévia (agora em âmbar), entrega a planta ao seu Bubie mais próximo (até 32 blocos), que constrói a base ali, bloco por bloco, com os blocos do baú dele. Não gasta uso da planta |
 
 - **Andares:** empilha quantos andares quiser (até 16), cada um com a altura das paredes e um piso entre eles, com um
   buraco de 1×1 junto à parede oposta à porta para você pôr uma escada. O teto ou a cúpula vai no topo. Dá para fazer torres.
@@ -62,6 +62,11 @@ Conserta na bigorna com papel.
 A textura é editável no Pontilha: `art-src/base_blueprint.pontilha`.
 
 ## Mudanças
+### 1.4.0
+- **Quem constrói: Você / Bubie** no menu, no lugar do botão "Construir com Bubie". Com Bubie escolhido, você mira num
+  bloco, vê a prévia da base em âmbar e clica: o Bubie constrói exatamente ali. Antes o botão ficava dentro do menu, que
+  só abre clicando no ar, então a base saía no bloco onde você estava, sem prévia.
+
 ### 1.3.1
 - Tradução para o espanhol (es_es e as variantes da América Latina).
 

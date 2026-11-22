@@ -1,5 +1,7 @@
 package com.baseblueprint;
 
+import com.baseblueprint.api.HelperBuildEvent;
+import net.minecraft.core.BlockPos;
 import com.baseblueprint.client.ClientHooks;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -61,7 +63,14 @@ public class BlueprintItem extends Item {
         }
 
         if (!level.isClientSide) {
-            BaseBuilder.build(player, stack, BaseBuilder.target(level, ctx.getClickedPos(), ctx.getClickedFace()));
+            BlockPos origin = BaseBuilder.target(level, ctx.getClickedPos(), ctx.getClickedFace());
+            // "Built by: Bubie" in the menu: the same click, on the same preview, hands the job to a helper
+            if (BaseBuilder.settings(stack).helper() && HelperBuildEvent.available()
+                    && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                HelperBuildEvent.ask(serverPlayer, stack, origin);
+            } else {
+                BaseBuilder.build(player, stack, origin);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

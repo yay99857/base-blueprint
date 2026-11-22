@@ -37,6 +37,40 @@ public class BlueprintGameTests {
         return player;
     }
 
+    /** "Built by: Bubie" is kept on the blueprint, and a blueprint from before 1.4 is still built by the player. */
+    @GameTest(template = EMPTY)
+    public static void builtByAHelperIsSavedAndOldBlueprintsAreNot(GameTestHelper helper) {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        BlueprintSettings chosen = BlueprintSettings.DEFAULT.withHelper(true);
+        com.google.gson.JsonElement json = BlueprintSettings.CODEC.encodeStart(ops, chosen).getOrThrow();
+        helper.assertTrue(BlueprintSettings.CODEC.parse(ops, json).getOrThrow().equals(chosen), "the choice is saved");
+        json.getAsJsonObject().remove("helper");
+        helper.assertTrue(!BlueprintSettings.CODEC.parse(ops, json).getOrThrow().helper(), "a 1.3 blueprint is built by the player");
+        helper.assertTrue(chosen.withWidth(9).clamped().helper(), "changing the size keeps the choice");
+        helper.succeed();
+    }
+
+    /** A click with "Built by: Bubie" offers the job to the helpers: one takes it, or the player is told none is near. */
+    @GameTest(template = EMPTY)
+    public static void aHelperTakesTheJobOrNobodyDoes(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(
+                helper.getLevel(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "BlueprintTester"));
+        ItemStack stack = blueprint(BlueprintSettings.DEFAULT.withHelper(true));
+        BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
+        helper.assertTrue(!com.baseblueprint.api.HelperBuildEvent.ask(player, stack, origin), "nobody takes it");
+        java.util.function.Consumer<com.baseblueprint.api.HelperBuildEvent> taker = event -> {
+            if (event.getOrigin().equals(origin)) event.accept(net.minecraft.network.chat.Component.literal("on it"));
+        };
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(com.baseblueprint.api.HelperBuildEvent.class, taker);
+        try {
+            helper.assertTrue(com.baseblueprint.api.HelperBuildEvent.ask(player, stack, origin), "a helper takes it");
+        } finally {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(taker);
+        }
+        helper.assertTrue(helper.getLevel().getBlockState(origin).isAir(), "nothing is placed at once");
+        helper.succeed();
+    }
+
     /** Pixel-circle counts: 5×5 circle drops the 4 corners, 7×7 drops 3 per corner. */
     @GameTest(template = EMPTY)
     public static void circleShapeMatchesPixelCircle(GameTestHelper helper) {

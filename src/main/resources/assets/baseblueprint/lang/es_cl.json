@@ -65,6 +65,12 @@
   "tooltip.baseblueprint.uses": "Usos restantes: %s / %s",
   "screen.baseblueprint.storeys": "Pisos",
   "tooltip.baseblueprint.storeys": "%s pisos de %s bloques cada uno",
-  "screen.baseblueprint.helper": "Construir con Bubie",
+  "screen.baseblueprint.builder": "La construye",
+  "builder.baseblueprint.you": "Tú",
+  "builder.baseblueprint.helper": "Bubie",
+  "screen.baseblueprint.builder.you_tip": "Clic derecho en un bloque y la base se construye al instante, con tus bloques.",
+  "screen.baseblueprint.builder.helper_tip": "Clic derecho en un bloque y tu Bubie más cercano construye la base ahí, bloque a bloque, con los bloques de su cofre.",
+  "hud.baseblueprint.helper": "Clic derecho: tu Bubie la construye aquí",
+  "hud.baseblueprint.helper_count": "%s × %s de su cofre",
   "message.baseblueprint.no_helper": "No hay ningún Bubie tuyo cerca para construirla (a menos de 32 bloques)"
 }

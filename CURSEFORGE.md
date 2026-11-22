@@ -29,7 +29,7 @@ An early-game item, crafted from a crafting table and 3 paper, that builds a who
 - Right-click a block to build. Sneak + right-click the air undoes your last base and gives the blocks back (saved with the world).
 - Blocks come from your inventory, from backpacks you carry and from chests nearby. Creative is free.
 - Respects spawn protection and claim mods: every block fires the normal place event.
-- With the **Bubie** mod: **Build with Bubie** in the menu sends your nearest Bubie to build the base where you are looking, from its own chest.
+- With the **Bubie** mod: set **Built by: Bubie** in the menu, aim at a block, see the amber preview and click. Your nearest Bubie builds the base right there, block by block, from its own chest.
 
 ![The menu with its pixel preview](https://media.forgecdn.net/attachments/2215/597/menu-jpg.jpg)
 ![The outline in the world before building](https://media.forgecdn.net/attachments/2215/598/preview-jpg.jpg)
@@ -47,7 +47,7 @@ Server config: max size, max wall height, undo, partial builds, container radius
 - Material separado para o piso e para as paredes e o teto.
 - Cada planta constrói **8 bases** (conserta na bigorna com papel).
 - Prévia no mundo (verde = dá para construir, vermelho = ocupado), desfazer salvo com o mundo, respeita proteções de claim.
-- Com o mod **Bubie**: **Construir com Bubie** no menu manda o seu Bubie mais próximo construir onde você está olhando.
+- Com o mod **Bubie**: escolha **Quem constrói: Bubie** no menu, mire num bloco, veja a prévia em âmbar e clique. O seu Bubie mais próximo constrói a base ali, bloco por bloco, com os blocos do baú dele.
 
 ---
 

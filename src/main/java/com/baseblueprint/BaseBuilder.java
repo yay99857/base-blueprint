@@ -118,8 +118,16 @@ public final class BaseBuilder {
 
     /** What would be placed (parts without a material are skipped) and what is in the way. */
     public static Plan plan(Level level, @Nullable Player player, BlueprintSettings settings, BlockPos origin, Materials materials) {
+        return plan(level, player, settings, origin, materials, doorSide(settings, origin, player));
+    }
+
+    /**
+     * The same with the door on a given side: for a helper that keeps building after the player walked away, and for
+     * showing on the client what it still has to place.
+     */
+    public static Plan plan(Level level, @Nullable Player player, BlueprintSettings settings, BlockPos origin, Materials materials,
+                            Direction door) {
         List<Placement> wanted = new ArrayList<>();
-        Direction door = doorSide(settings, origin, player);
         List<BaseShape.Placement> shape = BaseShape.of(settings).placements(settings, origin, door);
         // Foundation first, bottom-up, so every column is supported before the floor goes on top.
         if (settings.foundation() && settings.floor() != BlueprintSettings.Floor.NONE && materials.floor() != null) {
