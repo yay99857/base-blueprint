@@ -45,11 +45,6 @@ neoForge {
     }
 }
 
-// DEV ONLY screenshot tool, not ported to this Minecraft version yet; the mod does not use it.
-sourceSets.main.java {
-    exclude 'com/baseblueprint/client/ShotDirector.java'
-}
-
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

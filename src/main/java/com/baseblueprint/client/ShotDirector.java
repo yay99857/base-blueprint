@@ -56,13 +56,13 @@ public final class ShotDirector {
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
         p.getAbilities().flying = true;
         p.onUpdateAbilities();
-        p.teleportTo(p.level(), x, y, z, yaw, pitch);
+        p.teleportTo(p.level(), x, y, z, java.util.Set.of(), yaw, pitch, true);
         p.setDeltaMovement(0, 0, 0);
     }
 
     private static void shot(String name) {
         Minecraft mc = Minecraft.getInstance();
-        Screenshot.grab(mc.gameDirectory, "bb_" + name + ".png", mc.getMainRenderTarget(), c -> LOG.info("shot {}", name));
+        Screenshot.grab(mc.gameDirectory, "bb_" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, c -> LOG.info("shot {}", name));
     }
 
     private static ItemStack stack(BlueprintSettings s, Block floor, Block walls) {
@@ -145,7 +145,7 @@ public final class ShotDirector {
             }
             LOG.info("plot at {} {}", CX, CZ);
             cmd(p, "forceload add " + (CX - 64) + " " + (CZ - 64) + " " + (CX + 64) + " " + (CZ + 64));
-            p.teleportTo(p.level(), CX, 200, CZ, 0, 0);
+            p.teleportTo(p.level(), CX, 200, CZ, java.util.Set.of(), 0, 0, true);
             p.getAbilities().flying = true;
             p.onUpdateAbilities();
         }));
@@ -173,7 +173,7 @@ public final class ShotDirector {
             add(20, () -> server(p -> BaseBuilder.build(p, p.getMainHandItem(), new BlockPos(CX + s.sx(), g, CZ + s.sz()))));
         }
         add(40, () -> {
-            mc.options.hideGui = true;
+            if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle(); // hide the HUD, as F1
             server(p -> p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY));
         });
         // close-ups: camera south-east of each base, looking at its centre
