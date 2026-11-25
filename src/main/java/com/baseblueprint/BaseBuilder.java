@@ -24,7 +24,10 @@ import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.EventHooks;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.access.ItemAccess;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -172,22 +175,23 @@ public final class BaseBuilder {
     // ---- where the blocks come from ----
 
     /** Item handlers of containers carried in the inventory (backpacks and the like). */
-    private static List<IItemHandler> carriedContainers(Player player, Item item) {
-        List<IItemHandler> out = new ArrayList<>();
+    private static List<ResourceHandler<ItemResource>> carriedContainers(Player player, Item item) {
+        List<ResourceHandler<ItemResource>> out = new ArrayList<>();
         Inventory inv = player.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack stack = inv.getItem(i);
             if (stack.isEmpty() || stack.is(item)) continue;
-            IItemHandler handler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+            // through the player's slot, so what is taken out is written back into the carried item
+            ResourceHandler<ItemResource> handler = stack.getCapability(Capabilities.Item.ITEM, ItemAccess.forPlayerSlot(player, i));
             if (handler != null) out.add(handler);
         }
         return out;
     }
 
     /** Item handlers of containers within {@link BlueprintConfig#containerRadius()} blocks the player may open. */
-    private static List<IItemHandler> nearbyContainers(Player player) {
+    private static List<ResourceHandler<ItemResource>> nearbyContainers(Player player) {
         int radius = BlueprintConfig.containerRadius();
-        List<IItemHandler> out = new ArrayList<>();
+        List<ResourceHandler<ItemResource>> out = new ArrayList<>();
         if (radius <= 0 || !(player.level() instanceof ServerLevel level)) return out;
         BlockPos center = player.blockPosition();
         int minCx = (center.getX() - radius) >> 4, maxCx = (center.getX() + radius) >> 4;
@@ -198,7 +202,7 @@ public final class BaseBuilder {
                 LevelChunk chunk = level.getChunk(cx, cz);
                 for (BlockPos pos : List.copyOf(chunk.getBlockEntities().keySet())) {
                     if (!pos.closerThan(center, radius + 0.5) || !level.mayInteract(player, pos)) continue;
-                    IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+                    ResourceHandler<ItemResource> handler = level.getCapability(Capabilities.Item.BLOCK, pos, null);
                     if (handler != null) out.add(handler);
                 }
             }
@@ -206,11 +210,10 @@ public final class BaseBuilder {
         return out;
     }
 
-    private static int count(IItemHandler handler, Item item) {
+    private static int count(ResourceHandler<ItemResource> handler, Item item) {
         int total = 0;
-        for (int i = 0; i < handler.getSlots(); i++) {
-            ItemStack stack = handler.getStackInSlot(i);
-            if (stack.is(item)) total += stack.getCount();
+        for (int i = 0; i < handler.size(); i++) {
+            if (handler.getResource(i).is(item)) total += handler.getAmountAsInt(i);
         }
         return total;
     }
@@ -229,8 +232,8 @@ public final class BaseBuilder {
     /** Blocks of {@code item} available to build with: inventory, carried containers and nearby containers. */
     public static int countAvailable(Player player, Item item) {
         int total = countItem(player, item);
-        for (IItemHandler handler : carriedContainers(player, item)) total += count(handler, item);
-        for (IItemHandler handler : nearbyContainers(player)) total += count(handler, item);
+        for (ResourceHandler<ItemResource> handler : carriedContainers(player, item)) total += count(handler, item);
+        for (ResourceHandler<ItemResource> handler : nearbyContainers(player)) total += count(handler, item);
         return total;
     }
 
@@ -247,12 +250,16 @@ public final class BaseBuilder {
         }
         inv.setChanged();
         if (amount <= 0) return;
-        List<IItemHandler> others = new ArrayList<>(carriedContainers(player, item));
+        List<ResourceHandler<ItemResource>> others = new ArrayList<>(carriedContainers(player, item));
         others.addAll(nearbyContainers(player));
-        for (IItemHandler handler : others) {
-            for (int i = 0; i < handler.getSlots() && amount > 0; i++) {
-                if (!handler.getStackInSlot(i).is(item)) continue;
-                amount -= handler.extractItem(i, amount, false).getCount();
+        for (ResourceHandler<ItemResource> handler : others) {
+            for (int i = 0; i < handler.size() && amount > 0; i++) {
+                ItemResource resource = handler.getResource(i);
+                if (!resource.is(item)) continue;
+                try (Transaction tx = Transaction.openRoot()) {
+                    amount -= handler.extract(i, resource, amount, tx);
+                    tx.commit();
+                }
             }
             if (amount <= 0) break;
         }
@@ -267,20 +274,20 @@ public final class BaseBuilder {
         BlueprintSettings settings = settings(blueprint).clamped();
         Materials materials = materials(player, blueprint);
         if (materials.floor() == null) {
-            player.displayClientMessage(Component.translatable("message.baseblueprint.no_material")
-                    .withStyle(ChatFormatting.YELLOW), true);
+            player.sendOverlayMessage(Component.translatable("message.baseblueprint.no_material")
+                    .withStyle(ChatFormatting.YELLOW));
             return 0;
         }
         Plan plan = plan(level, player, settings, origin, materials);
         // A base with holes is not a base: refuse until the spots are cleared (unless the server allows it).
         if (plan.blocked() > 0 && !BlueprintConfig.allowPartial()) {
-            player.displayClientMessage(Component.translatable("message.baseblueprint.blocked", plan.blocked())
-                    .withStyle(ChatFormatting.RED), true);
+            player.sendOverlayMessage(Component.translatable("message.baseblueprint.blocked", plan.blocked())
+                    .withStyle(ChatFormatting.RED));
             return 0;
         }
         if (plan.toPlace().isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_place")
-                    .withStyle(ChatFormatting.YELLOW), true);
+            player.sendOverlayMessage(Component.translatable("message.baseblueprint.nothing_to_place")
+                    .withStyle(ChatFormatting.YELLOW));
             return 0;
         }
 
@@ -289,9 +296,9 @@ public final class BaseBuilder {
             for (Map.Entry<Block, Integer> need : plan.needs().entrySet()) {
                 int have = countAvailable(player, need.getKey().asItem());
                 if (have < need.getValue()) {
-                    player.displayClientMessage(Component.translatable("message.baseblueprint.not_enough",
+                    player.sendOverlayMessage(Component.translatable("message.baseblueprint.not_enough",
                             need.getValue() - have, need.getKey().getName(), have, need.getValue())
-                            .withStyle(ChatFormatting.RED), true);
+                            .withStyle(ChatFormatting.RED));
                     return 0;
                 }
             }
@@ -311,8 +318,8 @@ public final class BaseBuilder {
             used.merge(p.block(), 1, Integer::sum);
         }
         if (placed.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_place")
-                    .withStyle(ChatFormatting.YELLOW), true);
+            player.sendOverlayMessage(Component.translatable("message.baseblueprint.nothing_to_place")
+                    .withStyle(ChatFormatting.YELLOW));
             return 0;
         }
         if (!free) used.forEach((block, n) -> consume(player, block.asItem(), n));
@@ -331,7 +338,7 @@ public final class BaseBuilder {
         Component msg = plan.blocked() > 0
                 ? Component.translatable("message.baseblueprint.built_blocked", placed.size(), main.getName(), plan.blocked())
                 : Component.translatable("message.baseblueprint.built", placed.size(), main.getName());
-        player.displayClientMessage(msg.copy().withStyle(ChatFormatting.GREEN), true);
+        player.sendOverlayMessage(msg.copy().withStyle(ChatFormatting.GREEN));
         wear(player, blueprint);
         return placed.size();
     }
@@ -382,8 +389,8 @@ public final class BaseBuilder {
         UndoHistory history = UndoHistory.get(level.getServer());
         UndoHistory.LastBuild last = history.get(player.getUUID());
         if (last == null || last.blocks().isEmpty() || last.dimension() != level.dimension()) {
-            player.displayClientMessage(Component.translatable("message.baseblueprint.nothing_to_undo")
-                    .withStyle(ChatFormatting.YELLOW), true);
+            player.sendOverlayMessage(Component.translatable("message.baseblueprint.nothing_to_undo")
+                    .withStyle(ChatFormatting.YELLOW));
             return;
         }
         history.remove(player.getUUID());
@@ -402,14 +409,14 @@ public final class BaseBuilder {
                 int left = n;
                 while (left > 0) {
                     int stack = Math.min(left, item.getDefaultMaxStackSize());
-                    player.getInventory().placeItemBackInInventory(new ItemStack(item, stack));
+                    player.getInventory().placeItemBackInInventory(new ItemStack(item, stack), net.minecraft.util.Prediction.SERVER_ONLY);
                     left -= stack;
                 }
             });
         }
         int total = removed.values().stream().mapToInt(Integer::intValue).sum();
         Block main = removed.isEmpty() ? last.blocks().get(0).block() : removed.keySet().iterator().next();
-        player.displayClientMessage(Component.translatable("message.baseblueprint.undone", total, main.getName())
-                .withStyle(ChatFormatting.AQUA), true);
+        player.sendOverlayMessage(Component.translatable("message.baseblueprint.undone", total, main.getName())
+                .withStyle(ChatFormatting.AQUA));
     }
 }

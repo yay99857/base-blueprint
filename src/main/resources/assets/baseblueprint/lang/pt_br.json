@@ -72,5 +72,6 @@
   "screen.baseblueprint.builder.helper_tip": "Clique direito num bloco e o seu Bubie mais próximo constrói a base ali, bloco por bloco, com os blocos do baú dele.",
   "hud.baseblueprint.helper": "Clique direito: o seu Bubie constrói aqui",
   "hud.baseblueprint.helper_count": "%s × %s do baú dele",
-  "message.baseblueprint.no_helper": "Nenhum Bubie seu por perto para construir (até 32 blocos)"
+  "message.baseblueprint.no_helper": "Nenhum Bubie seu por perto para construir (até 32 blocos)",
+  "key.category.baseblueprint.main": "Planta de Base"
 }

@@ -8,7 +8,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
-logoFile="baseblueprint_logo.png"
+iconFile="baseblueprint_logo.png"
 logoBlur=false
 
 [[dependencies.${mod_id}]]

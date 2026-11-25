@@ -9,14 +9,12 @@ import com.baseblueprint.ModComponents;
 import com.baseblueprint.network.UpdateSettingsPayload;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.math.Axis;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.Screen;
@@ -51,6 +49,7 @@ public class BlueprintScreen extends Screen {
     private float yaw = 35, pitch = 30, zoom = 1;
     private List<BlockPos> blockPos = List.of();
     private List<BlockState> blockStates = List.of();
+    private List<net.minecraft.client.renderer.block.BlockModelRenderState> blockModels = List.of();
     private int minX, minY, minZ, maxX, maxY, maxZ;
 
     public BlueprintScreen(InteractionHand hand) {
@@ -83,6 +82,7 @@ public class BlueprintScreen extends Screen {
         }
         blockPos = pos;
         blockStates = states;
+        blockModels = BasePreview.models(states);
     }
 
     private static final int MAX_3D_BLOCKS = 12000;
@@ -101,9 +101,8 @@ public class BlueprintScreen extends Screen {
         int colW = PANEL_W - GRID - 32;
 
         addRenderableWidget(CycleButton.<BlueprintSettings.Shape>builder(s ->
-                        Component.translatable("shape.baseblueprint." + s.getSerializedName()))
+                        Component.translatable("shape.baseblueprint." + s.getSerializedName()), settings.shape())
                 .withValues(BlueprintSettings.Shape.values())
-                .withInitialValue(settings.shape())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.shape"),
                         (b, v) -> update(settings.withShape(v))));
         y += ROW;
@@ -124,9 +123,8 @@ public class BlueprintScreen extends Screen {
                 }));
         y += ROW;
         addRenderableWidget(CycleButton.<BlueprintSettings.Floor>builder(f ->
-                        Component.translatable("floor.baseblueprint." + f.getSerializedName()))
+                        Component.translatable("floor.baseblueprint." + f.getSerializedName()), settings.floor())
                 .withValues(BlueprintSettings.Floor.values())
-                .withInitialValue(settings.floor())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.floor"),
                         (b, v) -> update(settings.withFloor(v))));
         y += ROW;
@@ -147,9 +145,8 @@ public class BlueprintScreen extends Screen {
                         (b, v) -> update(settings.withDoor(v))));
         y += ROW;
         addRenderableWidget(CycleButton.<BlueprintSettings.Roof>builder(r ->
-                        Component.translatable("roof.baseblueprint." + r.getSerializedName()))
+                        Component.translatable("roof.baseblueprint." + r.getSerializedName()), settings.roof())
                 .withValues(BlueprintSettings.Roof.values())
-                .withInitialValue(settings.roof())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.roof"),
                         (b, v) -> update(settings.withRoof(v))));
         y += ROW;
@@ -158,9 +155,8 @@ public class BlueprintScreen extends Screen {
                         (b, v) -> update(settings.withFoundation(v))));
         y += ROW;
         addRenderableWidget(CycleButton.<BlueprintSettings.Pick>builder(k ->
-                        Component.translatable("pick.baseblueprint." + k.getSerializedName()))
+                        Component.translatable("pick.baseblueprint." + k.getSerializedName()), settings.pick())
                 .withValues(BlueprintSettings.Pick.values())
-                .withInitialValue(settings.pick())
                 .create(x, y, colW, 20, Component.translatable("screen.baseblueprint.pick"),
                         (b, v) -> update(settings.withPick(v))));
 
@@ -173,8 +169,7 @@ public class BlueprintScreen extends Screen {
             // who builds it where you click: you (at once) or a helper, the Bubie mod's Builder (block by block).
             // Done moves right to make room.
             addRenderableWidget(CycleButton.booleanBuilder(Component.translatable("builder.baseblueprint.helper"),
-                            Component.translatable("builder.baseblueprint.you"))
-                    .withInitialValue(settings.helper())
+                            Component.translatable("builder.baseblueprint.you"), settings.helper())
                     .withTooltip(v -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable(
                             v ? "screen.baseblueprint.builder.helper_tip" : "screen.baseblueprint.builder.you_tip")))
                     .create(left + PANEL_W / 2 - 134, top + PANEL_H - 28, 130, 20,
@@ -195,14 +190,14 @@ public class BlueprintScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("+"), b -> set.accept(get.getAsInt() + step()))
                 .bounds(bx + 42, y, 20, 20).build());
         addRenderableOnly((g, mx, my, pt) -> {
-            g.drawString(font, Component.translatable(label), x, y + 6, 0xFFE0E0E0, false);
+            g.text(font, Component.translatable(label), x, y + 6, 0xFFE0E0E0, false);
             String value = String.valueOf(get.getAsInt());
-            g.drawString(font, value, bx + 31 - font.width(value) / 2, y + 6, 0xFFFFFFFF, true);
+            g.text(font, value, bx + 31 - font.width(value) / 2, y + 6, 0xFFFFFFFF, true);
         });
     }
 
     private static int step() {
-        return hasShiftDown() ? 5 : 1;
+        return net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 5 : 1;
     }
 
     private void update(BlueprintSettings next) {
@@ -216,19 +211,21 @@ public class BlueprintScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) return true;
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y();
+        if (super.mouseClicked(event, doubleClick)) return true;
         return inPreview(mx, my);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+        double mx = event.x(), my = event.y();
         if (view3d && inPreview(mx, my)) {
             yaw += (float) dx * 2.5f;
             pitch = Mth.clamp(pitch + (float) dy * 2.5f, -10, 89);
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(event, dx, dy);
     }
 
     @Override
@@ -240,47 +237,27 @@ public class BlueprintScreen extends Screen {
         return super.mouseScrolled(mx, my, sx, sy);
     }
 
-    private void render3d(GuiGraphics g, int gx, int gy) {
+    private void render3d(GuiGraphicsExtractor g, int gx, int gy) {
         if (blockPos.isEmpty() || minecraft == null) return;
         float cx = (minX + maxX + 1) / 2f, cy = (minY + maxY + 1) / 2f, cz = (minZ + maxZ + 1) / 2f;
         float size = (float) Math.sqrt(Math.pow(maxX - minX + 1, 2) + Math.pow(maxY - minY + 1, 2) + Math.pow(maxZ - minZ + 1, 2));
         float scale = GRID / size * zoom;
-        var blocks = minecraft.getBlockRenderer();
-        var buffers = g.bufferSource();
-        g.enableScissor(gx, gy, gx + GRID, gy + GRID);
-        var pose = g.pose();
-        pose.pushPose();
-        pose.translate(gx + GRID / 2f, gy + GRID / 2f, 400);
-        pose.scale(scale, -scale, scale);
-        pose.mulPose(Axis.XP.rotationDegrees(pitch));
-        pose.mulPose(Axis.YP.rotationDegrees(yaw));
-        pose.translate(-cx, -cy, -cz);
-        Lighting.setupFor3DItems();
-        for (int i = 0; i < blockPos.size(); i++) {
-            BlockPos b = blockPos.get(i);
-            pose.pushPose();
-            pose.translate(b.getX(), b.getY(), b.getZ());
-            blocks.renderSingleBlock(blockStates.get(i), pose, buffers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-                    ModelData.EMPTY, null);
-            pose.popPose();
-        }
-        g.flush();
-        pose.popPose();
-        g.disableScissor();
+        g.submitPictureInPictureRenderState(BasePreview.state(blockPos, blockModels, cx, cy, cz, yaw, pitch,
+                gx, gy, gx + GRID, gy + GRID, scale, g.peekScissorStack()));
     }
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(g, mouseX, mouseY, partialTick);
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick);
         g.fill(left - 1, top - 1, left + PANEL_W + 1, top + PANEL_H + 1, 0xFF0B1E33);
         g.fill(left, top, left + PANEL_W, top + PANEL_H, 0xF0153A5E);
         g.fill(left + 10, top + 24, left + 10 + GRID, top + 24 + GRID, 0xFF0E2A47);
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.render(g, mouseX, mouseY, partialTick);
-        g.drawCenteredString(font, title, left + PANEL_W / 2, top + 9, 0xFFFFFFFF);
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(g, mouseX, mouseY, partialTick);
+        g.centeredText(font, title, left + PANEL_W / 2, top + 9, 0xFFFFFFFF);
         if (view3d && settings.wallHeight() > 0) {
             render3d(g, left + 10, top + 24);
         } else {
@@ -290,33 +267,33 @@ public class BlueprintScreen extends Screen {
         Player player = minecraft == null ? null : minecraft.player;
         int need = shape.blockCount(settings);
         int y = top + 26 + ROW * 11 + 4;
-        g.drawString(font, Component.translatable("screen.baseblueprint.size", settings.width(), settings.length()),
+        g.text(font, Component.translatable("screen.baseblueprint.size", settings.width(), settings.length()),
                 left + 10, top + 24 + GRID + 6, 0xFFB8D4F0, false);
-        g.drawString(font, Component.translatable("screen.baseblueprint.blocks", need), left + 10, top + 24 + GRID + 17,
+        g.text(font, Component.translatable("screen.baseblueprint.blocks", need), left + 10, top + 24 + GRID + 17,
                 0xFFFFFFFF, false);
         if (settings.roof() == BlueprintSettings.Roof.DOME && settings.shape() != BlueprintSettings.Shape.CIRCLE) {
-            g.drawString(font, Component.translatable("screen.baseblueprint.dome_circle_only"), left + 10, top + 24 + GRID + 28,
+            g.text(font, Component.translatable("screen.baseblueprint.dome_circle_only"), left + 10, top + 24 + GRID + 28,
                     0xFFFFD866, false);
         }
         BaseBuilder.Materials materials = player == null ? new BaseBuilder.Materials(null, null)
                 : BaseBuilder.materials(player, heldStack());
         if (materials.floor() == null) {
-            g.drawString(font, Component.translatable("screen.baseblueprint.no_material"), left + 10, y, 0xFFFFD866, false);
+            g.text(font, Component.translatable("screen.baseblueprint.no_material"), left + 10, y, 0xFFFFD866, false);
             return;
         }
         drawMaterial(g, player, "screen.baseblueprint.material_floor", materials.floor(), left + 10, y);
         drawMaterial(g, player, "screen.baseblueprint.material_walls", materials.walls(), left + 10, y + 11);
     }
 
-    private void drawMaterial(GuiGraphics g, Player player, String key, Block block, int x, int y) {
+    private void drawMaterial(GuiGraphicsExtractor g, Player player, String key, Block block, int x, int y) {
         boolean creative = player.isCreative();
         int have = BaseBuilder.countItem(player, block.asItem());
         Component line = creative ? Component.translatable(key + "_free", block.getName())
                 : Component.translatable(key, block.getName(), have);
-        g.drawString(font, line, x, y, 0xFFE0E0E0, false);
+        g.text(font, line, x, y, 0xFFE0E0E0, false);
     }
 
-    private void renderGrid(GuiGraphics g, int gx, int gy) {
+    private void renderGrid(GuiGraphicsExtractor g, int gx, int gy) {
         int w = settings.width(), l = settings.length();
         float scale = (float) GRID / Math.max(w, l);
         // Whole-pixel cells when they fit, so the preview stays crisp.
@@ -336,9 +313,9 @@ public class BlueprintScreen extends Screen {
             }
         }
 
-        g.pose().pushPose();
-        g.pose().translate(ox, oz, 0);
-        g.pose().scale(scale, scale, 1);
+        g.pose().pushMatrix();
+        g.pose().translate(ox, oz);
+        g.pose().scale(scale, scale);
         for (int z = 0; z < l; z++) {
             for (int x = 0; x < w; x++) {
                 int color;
@@ -358,7 +335,7 @@ public class BlueprintScreen extends Screen {
                 g.fill(x, z, x + 1, z + 1, color);
             }
         }
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
@@ -366,7 +343,7 @@ public class BlueprintScreen extends Screen {
         ItemStack stack = heldStack();
         if (stack.is(BaseBlueprint.BLUEPRINT.get())) {
             stack.set(ModComponents.SETTINGS.get(), settings); // instant local preview; the server confirms
-            PacketDistributor.sendToServer(new UpdateSettingsPayload(hand == InteractionHand.MAIN_HAND, settings));
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new UpdateSettingsPayload(hand == InteractionHand.MAIN_HAND, settings));
         }
         super.onClose();
     }

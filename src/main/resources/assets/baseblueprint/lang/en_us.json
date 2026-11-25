@@ -72,5 +72,6 @@
   "screen.baseblueprint.builder.helper_tip": "Right-click a block and your nearest Bubie builds the base there, block by block, with the blocks in its chest.",
   "hud.baseblueprint.helper": "Right-click: your Bubie builds it here",
   "hud.baseblueprint.helper_count": "%s × %s from its chest",
-  "message.baseblueprint.no_helper": "No Bubie of yours nearby to build it (within 32 blocks)"
+  "message.baseblueprint.no_helper": "No Bubie of yours nearby to build it (within 32 blocks)",
+  "key.category.baseblueprint.main": "Base Blueprint"
 }

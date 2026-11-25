@@ -9,7 +9,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -28,7 +28,12 @@ import java.util.UUID;
  * the world or restarting the server.
  */
 public final class UndoHistory extends SavedData {
-    private static final String NAME = "baseblueprint_undo";
+    /** Kept as one tag in the layout the old SavedData used. */
+    private static final com.mojang.serialization.Codec<UndoHistory> CODEC =
+            CompoundTag.CODEC.xmap(UndoHistory::load, h -> h.save(new CompoundTag()));
+    private static final net.minecraft.world.level.saveddata.SavedDataType<UndoHistory> TYPE =
+            new net.minecraft.world.level.saveddata.SavedDataType<>(
+                    Identifier.fromNamespaceAndPath(BaseBlueprint.MOD_ID, "undo"), UndoHistory::new, CODEC);
 
     /** One placed block. */
     public record Placed(BlockPos pos, Block block) {
@@ -40,8 +45,7 @@ public final class UndoHistory extends SavedData {
     private final Map<UUID, LastBuild> last = new HashMap<>();
 
     public static UndoHistory get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(UndoHistory::new, UndoHistory::load, null), NAME);
+        return server.getDataStorage().computeIfAbsent(TYPE);
     }
 
     @Nullable
@@ -58,13 +62,12 @@ public final class UndoHistory extends SavedData {
         if (last.remove(player) != null) setDirty();
     }
 
-    @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         ListTag players = new ListTag();
         last.forEach((uuid, build) -> {
             CompoundTag entry = new CompoundTag();
-            entry.putUUID("Player", uuid);
-            entry.putString("Dimension", build.dimension().location().toString());
+            entry.store("Player", net.minecraft.core.UUIDUtil.CODEC, uuid);
+            entry.putString("Dimension", build.dimension().identifier().toString());
             // A palette keeps the file small: most bases use one or two blocks.
             Map<Block, Integer> palette = new LinkedHashMap<>();
             long[] positions = new long[build.blocks().size()];
@@ -85,25 +88,26 @@ public final class UndoHistory extends SavedData {
         return tag;
     }
 
-    public static UndoHistory load(CompoundTag tag, HolderLookup.Provider registries) {
+    public static UndoHistory load(CompoundTag tag) {
         UndoHistory history = new UndoHistory();
-        for (Tag t : tag.getList("Players", Tag.TAG_COMPOUND)) {
+        for (Tag t : tag.getListOrEmpty("Players")) {
             CompoundTag entry = (CompoundTag) t;
-            ResourceLocation dim = ResourceLocation.tryParse(entry.getString("Dimension"));
-            if (dim == null || !entry.hasUUID("Player")) continue;
+            Identifier dim = Identifier.tryParse(entry.getStringOr("Dimension", ""));
+            UUID player = entry.read("Player", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+            if (dim == null || player == null) continue;
             List<Block> palette = new ArrayList<>();
-            for (Tag name : entry.getList("Palette", Tag.TAG_STRING)) {
-                ResourceLocation id = ResourceLocation.tryParse(name.getAsString());
+            for (Tag name : entry.getListOrEmpty("Palette")) {
+                Identifier id = Identifier.tryParse(name.asString().orElse(""));
                 palette.add(id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null));
             }
-            long[] positions = entry.getLongArray("Positions");
-            int[] indices = entry.getIntArray("Blocks");
+            long[] positions = entry.getLongArray("Positions").orElse(new long[0]);
+            int[] indices = entry.getIntArray("Blocks").orElse(new int[0]);
             List<Placed> blocks = new ArrayList<>(positions.length);
             for (int i = 0; i < positions.length && i < indices.length; i++) {
                 Block block = indices[i] < palette.size() ? palette.get(indices[i]) : null;
                 if (block != null) blocks.add(new Placed(BlockPos.of(positions[i]), block));
             }
-            history.last.put(entry.getUUID("Player"),
+            history.last.put(player,
                     new LastBuild(ResourceKey.create(Registries.DIMENSION, dim), blocks));
         }
         return history;

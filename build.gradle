@@ -4,14 +4,14 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148'
 }
 
-version = project.mod_version
+version = "${project.mod_version}-${project.minecraft_version}"
 group = project.mod_group_id
 
 base {
     archivesName = project.mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = project.neo_version
@@ -45,6 +45,11 @@ neoForge {
     }
 }
 
+// DEV ONLY screenshot tool, not ported to this Minecraft version yet; the mod does not use it.
+sourceSets.main.java {
+    exclude 'com/baseblueprint/client/ShotDirector.java'
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
@@ -65,4 +70,8 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand modMetadata
     }
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    options.compilerArgs += ['-Xmaxerrs', '5000']
 }

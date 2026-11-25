@@ -47,7 +47,7 @@ public final class ShotDirector {
     }
 
     private static void cmd(ServerPlayer p, String c) {
-        p.server.getCommands().performPrefixedCommand(p.createCommandSourceStack().withPermission(4).withSuppressedOutput(), c);
+        p.level().getServer().getCommands().performPrefixedCommand(p.createCommandSourceStack().withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER).withSuppressedOutput(), c);
     }
 
     private static void look(ServerPlayer p, double x, double y, double z, double tx, double ty, double tz) {
@@ -56,7 +56,7 @@ public final class ShotDirector {
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
         p.getAbilities().flying = true;
         p.onUpdateAbilities();
-        p.teleportTo(p.serverLevel(), x, y, z, yaw, pitch);
+        p.teleportTo(p.level(), x, y, z, yaw, pitch);
         p.setDeltaMovement(0, 0, 0);
     }
 
@@ -91,7 +91,7 @@ public final class ShotDirector {
     }
 
     private static void flatten(ServerPlayer p) {
-        ServerLevel level = p.serverLevel();
+        ServerLevel level = p.level();
         g = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, CX, CZ);
         BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
         for (int x = -60; x <= 60; x++) {
@@ -137,7 +137,7 @@ public final class ShotDirector {
                     "time set 5000", "weather clear", "gamemode creative",
                     "attribute @s minecraft:player.block_interaction_range base set 40"))
                 cmd(p, c);
-            var found = p.serverLevel().findClosestBiome3d(b -> b.is(net.minecraft.world.level.biome.Biomes.PLAINS),
+            var found = p.level().findClosestBiome3d(b -> b.is(net.minecraft.world.level.biome.Biomes.PLAINS),
                     new BlockPos(3000, 64, 3000), 6400, 32, 64);
             if (found != null) {
                 CX = found.getFirst().getX();
@@ -145,7 +145,7 @@ public final class ShotDirector {
             }
             LOG.info("plot at {} {}", CX, CZ);
             cmd(p, "forceload add " + (CX - 64) + " " + (CZ - 64) + " " + (CX + 64) + " " + (CZ + 64));
-            p.teleportTo(p.serverLevel(), CX, 200, CZ, 0, 0);
+            p.teleportTo(p.level(), CX, 200, CZ, 0, 0);
             p.getAbilities().flying = true;
             p.onUpdateAbilities();
         }));
@@ -160,15 +160,15 @@ public final class ShotDirector {
                 look(p, x, g + 9, z, CX + s.sx() + 0.5, g, CZ + s.sz() + 0.5);
             }));
             if (n == 4) {
-                add(30, () -> mc.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));
+                add(30, () -> mc.gui.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));
                 add(20, () -> shot("menu_tower"));
-                add(5, () -> mc.setScreen(null));
+                add(5, () -> mc.gui.setScreen(null));
             }
             if (n == 0) {
                 add(60, () -> shot("preview"));
-                add(10, () -> mc.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));
+                add(10, () -> mc.gui.setScreen(new BlueprintScreen(InteractionHand.MAIN_HAND)));
                 add(20, () -> shot("menu"));
-                add(5, () -> mc.setScreen(null));
+                add(5, () -> mc.gui.setScreen(null));
             }
             add(20, () -> server(p -> BaseBuilder.build(p, p.getMainHandItem(), new BlockPos(CX + s.sx(), g, CZ + s.sz()))));
         }

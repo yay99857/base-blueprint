@@ -39,8 +39,8 @@ public class HelperBuildEvent extends Event {
     /** Offers the job to the helpers and tells the player who took it, or that none is near. True if one took it. */
     public static boolean ask(ServerPlayer player, ItemStack blueprint, BlockPos origin) {
         HelperBuildEvent event = NeoForge.EVENT_BUS.post(new HelperBuildEvent(player, blueprint, origin));
-        player.displayClientMessage(event.isAccepted() ? event.getMessage()
-                : Component.translatable("message.baseblueprint.no_helper").withStyle(ChatFormatting.YELLOW), true);
+        player.sendOverlayMessage(event.isAccepted() ? event.getMessage()
+                : Component.translatable("message.baseblueprint.no_helper").withStyle(ChatFormatting.YELLOW));
         return event.isAccepted();
     }
 

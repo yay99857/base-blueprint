@@ -1,7 +1,7 @@
 package com.baseblueprint;
 
 import com.baseblueprint.network.UpdateSettingsPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -22,12 +22,13 @@ public class BaseBlueprint {
 
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
     public static final DeferredItem<BlueprintItem> BLUEPRINT =
-            ITEMS.register("base_blueprint", () -> new BlueprintItem(new Item.Properties().durability(USES)));
+            ITEMS.registerItem("base_blueprint", BlueprintItem::new, p -> p.durability(USES).repairable(net.minecraft.world.item.Items.PAPER)); // paper repairs it in an anvil
 
     public BaseBlueprint(IEventBus modBus, ModContainer container) {
-        container.registerConfig(ModConfig.Type.SERVER, BlueprintConfig.SPEC);
+        container.registerConfig(ModConfig.Type.SYNCED, BlueprintConfig.SPEC);
         ModComponents.COMPONENTS.register(modBus);
         ITEMS.register(modBus);
+        com.baseblueprint.gametest.ModTests.register(modBus);
 
         modBus.addListener((BuildCreativeModeTabContentsEvent event) -> {
             if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
@@ -39,8 +40,8 @@ public class BaseBlueprint {
 
     }
 
-    public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    public static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 
 }

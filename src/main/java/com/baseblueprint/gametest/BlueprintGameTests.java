@@ -8,19 +8,14 @@ import com.baseblueprint.BlueprintSettings;
 import com.baseblueprint.ModComponents;
 import com.baseblueprint.UndoHistory;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Run with ./gradlew runGameTestServer (exits non-zero when a test fails). */
-@GameTestHolder(BaseBlueprint.MOD_ID)
-@PrefixGameTestTemplate(false)
 public class BlueprintGameTests {
     private static final String EMPTY = "empty";
 
@@ -38,7 +33,7 @@ public class BlueprintGameTests {
     }
 
     /** "Built by: Bubie" is kept on the blueprint, and a blueprint from before 1.4 is still built by the player. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void builtByAHelperIsSavedAndOldBlueprintsAreNot(GameTestHelper helper) {
         var ops = com.mojang.serialization.JsonOps.INSTANCE;
         BlueprintSettings chosen = BlueprintSettings.DEFAULT.withHelper(true);
@@ -51,7 +46,7 @@ public class BlueprintGameTests {
     }
 
     /** A click with "Built by: Bubie" offers the job to the helpers: one takes it, or the player is told none is near. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void aHelperTakesTheJobOrNobodyDoes(GameTestHelper helper) {
         net.minecraft.server.level.ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(
                 helper.getLevel(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "BlueprintTester"));
@@ -72,7 +67,7 @@ public class BlueprintGameTests {
     }
 
     /** Pixel-circle counts: 5×5 circle drops the 4 corners, 7×7 drops 3 per corner. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void circleShapeMatchesPixelCircle(GameTestHelper helper) {
         BlueprintSettings c5 = new BlueprintSettings(BlueprintSettings.Shape.CIRCLE, 5, 5, BlueprintSettings.Floor.FILLED, 0);
         BlueprintSettings c7 = new BlueprintSettings(BlueprintSettings.Shape.CIRCLE, 7, 7, BlueprintSettings.Floor.FILLED, 0);
@@ -84,7 +79,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void buildsAndTakesBlocksFromInventory(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -98,7 +93,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void refusesWithoutEnoughBlocks(GameTestHelper helper) {
         Player player = survivor(helper, 10);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -110,7 +105,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void refusesWhenSpotsAreOccupied(GameTestHelper helper) {
         helper.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);
         Player player = survivor(helper, 64);
@@ -123,7 +118,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void replaceablePlantsDoNotBlock(GameTestHelper helper) {
         helper.setBlock(new BlockPos(5, 1, 4), Blocks.SHORT_GRASS);
         Player player = survivor(helper, 64);
@@ -135,7 +130,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void partialBuildSkipsAndChargesOnlyPlaced(GameTestHelper helper) {
         helper.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);
         Player player = survivor(helper, 64);
@@ -154,7 +149,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void wallsGoOnTopOfTheFloorEdge(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -167,7 +162,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void undoReturnsTheBlocks(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -180,7 +175,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void offhandBlockWinsAndCreativeIsFree(GameTestHelper helper) {
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS));
@@ -193,7 +188,7 @@ public class BlueprintGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void rejectsBadMaterials(GameTestHelper helper) {
         helper.assertTrue(BaseBuilder.isValidMaterial(Blocks.COBBLESTONE), "cobblestone is fine");
         helper.assertTrue(BaseBuilder.isValidMaterial(Blocks.OAK_SLAB), "slabs are fine");
@@ -210,7 +205,7 @@ public class BlueprintGameTests {
     }
 
     /** Octagon and hexagon footprints: counts and the corners they cut. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void octagonAndHexagonShapes(GameTestHelper helper) {
         BaseShape oct = BaseShape.of(BlueprintSettings.Shape.OCTAGON, 9, 9);
         BaseShape hex = BaseShape.of(BlueprintSettings.Shape.HEXAGON, 9, 7);
@@ -227,7 +222,7 @@ public class BlueprintGameTests {
     }
 
     /** Floor in one block, walls in another, each taken from the inventory. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void separateWallMaterial(GameTestHelper helper) {
         Player player = survivor(helper, 25);
         player.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16));
@@ -244,11 +239,11 @@ public class BlueprintGameTests {
     }
 
     /** The door is a 1x2 opening in the middle of the wall facing the player. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void doorFacesThePlayer(GameTestHelper helper) {
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
         BlockPos south = helper.absolutePos(new BlockPos(4, 1, 12));
-        player.moveTo(south.getX() + 0.5, south.getY(), south.getZ() + 0.5);
+        player.snapTo(south.getX() + 0.5, south.getY(), south.getZ() + 0.5);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
         BaseBuilder.build(player, blueprint(with(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 3,
                 true, BlueprintSettings.Roof.NONE, false)), origin);
@@ -261,7 +256,7 @@ public class BlueprintGameTests {
     }
 
     /** A flat roof covers the whole footprint one layer above the walls. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void flatRoofCoversTheBase(GameTestHelper helper) {
         BlueprintSettings s = with(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 2,
                 false, BlueprintSettings.Roof.FLAT, false);
@@ -274,7 +269,7 @@ public class BlueprintGameTests {
     }
 
     /** A dome is a closed half-ellipsoid shell: every footprint cell has roof above it, and it is hollow. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void domeIsAClosedShell(GameTestHelper helper) {
         BlueprintSettings s = with(BlueprintSettings.Shape.CIRCLE, 7, 7, BlueprintSettings.Floor.NONE, 1,
                 false, BlueprintSettings.Roof.DOME, false);
@@ -302,7 +297,7 @@ public class BlueprintGameTests {
     }
 
     /** On a ledge the foundation fills under the floor down to the ground. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void foundationFillsTheGap(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         BlueprintSettings s = with(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0,
@@ -316,32 +311,30 @@ public class BlueprintGameTests {
     }
 
     /** With an empty inventory the blocks come from a chest next to the player. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void takesBlocksFromANearbyChest(GameTestHelper helper) {
         Player player = survivor(helper, 0);
         BlockPos chestPos = new BlockPos(1, 1, 1);
         helper.setBlock(chestPos, Blocks.CHEST);
-        var chest = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK,
-                helper.absolutePos(chestPos), null);
-        chest.insertItem(0, new ItemStack(Items.COBBLESTONE, 20), false);
+        var chest = helper.getBlockEntity(chestPos, net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        chest.setItem(0, new ItemStack(Items.COBBLESTONE, 20));
         BlockPos near = helper.absolutePos(new BlockPos(1, 1, 3));
-        player.moveTo(near.getX() + 0.5, near.getY(), near.getZ() + 0.5);
+        player.snapTo(near.getX() + 0.5, near.getY(), near.getZ() + 0.5);
         int placed = BaseBuilder.build(player, blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3,
                 BlueprintSettings.Floor.FILLED, 0)), helper.absolutePos(new BlockPos(5, 1, 5)));
         helper.assertValueEqual(placed, 9, "blocks placed from the chest");
-        helper.assertValueEqual(chest.getStackInSlot(0).getCount(), 11, "cobblestone left in the chest");
+        helper.assertValueEqual(chest.getItem(0).getCount(), 11, "cobblestone left in the chest");
         helper.succeed();
     }
 
     /** The undo history survives a save and reload of the world data. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void undoHistoryIsSaved(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         BaseBuilder.build(player, blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3,
                 BlueprintSettings.Floor.FILLED, 1)), helper.absolutePos(new BlockPos(4, 1, 4)));
-        var registries = helper.getLevel().registryAccess();
-        var tag = UndoHistory.get(helper.getLevel().getServer()).save(new net.minecraft.nbt.CompoundTag(), registries);
-        UndoHistory reloaded = UndoHistory.load(tag, registries);
+        var tag = UndoHistory.get(helper.getLevel().getServer()).save(new net.minecraft.nbt.CompoundTag());
+        UndoHistory reloaded = UndoHistory.load(tag);
         UndoHistory.LastBuild last = reloaded.get(player.getUUID());
         helper.assertTrue(last != null, "no history after reload");
         helper.assertValueEqual(last.blocks().size(), 9 + 8, "blocks remembered");
@@ -350,7 +343,7 @@ public class BlueprintGameTests {
     }
 
     /** A blueprint builds 8 bases and then breaks; creative does not wear it. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void blueprintWearsOutAfterEightBases(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         ItemStack stack = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0));
@@ -373,7 +366,7 @@ public class BlueprintGameTests {
     }
 
     /** Storeys: walls of the chosen height, a floor between storeys with a 1x1 hatch, the roof on top. */
-    @GameTest(template = EMPTY)
+    @ModTest(template = EMPTY)
     public static void storeysStackFloorsAndWalls(GameTestHelper helper) {
         BlueprintSettings s = new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 2,
                 true, BlueprintSettings.Roof.FLAT, false, BlueprintSettings.Pick.FLOOR, 3);

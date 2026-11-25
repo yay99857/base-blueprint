@@ -11,10 +11,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -31,9 +28,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
-import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
@@ -43,8 +38,10 @@ import java.util.Map;
 /** In-world outline preview, the hint under the crosshair and the menu key. */
 @EventBusSubscriber(modid = BaseBlueprint.MOD_ID, value = Dist.CLIENT)
 public final class ClientEvents {
+    public static final KeyMapping.Category CATEGORY =
+            new KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath(BaseBlueprint.MOD_ID, "main"));
     public static final KeyMapping OPEN_MENU = new KeyMapping("key.baseblueprint.menu", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.baseblueprint");
+            InputConstants.Type.KEYBOARD, InputConstants.KEY_N, CATEGORY);
 
     /** What the blueprint would build where the player is looking. Refreshed every few ticks. */
     private record Preview(BlueprintSettings settings, BaseShape shape, BlockPos origin, @Nullable Block block,
@@ -89,7 +86,14 @@ public final class ClientEvents {
     /** Mod-bus event; NeoForge routes it to the mod bus automatically. */
     @SubscribeEvent
     static void keys(RegisterKeyMappingsEvent event) {
+        event.registerCategory(CATEGORY);
         event.register(OPEN_MENU);
+    }
+
+    /** Mod-bus event: the menu's 3D view of the base. */
+    @SubscribeEvent
+    static void pip(net.neoforged.neoforge.client.event.RegisterPictureInPictureRenderersEvent event) {
+        event.register(BasePreview.State.class, BasePreview.Renderer::new);
     }
 
     @Nullable
@@ -99,8 +103,14 @@ public final class ClientEvents {
         return null;
     }
 
+    /** Every tick: refresh the preview, then draw it as gizmos (the game keeps them on screen until the next tick). */
     @SubscribeEvent
     static void onTick(ClientTickEvent.Post event) {
+        update();
+        drawPreview();
+    }
+
+    private static void update() {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null || mc.level == null) {
@@ -109,7 +119,7 @@ public final class ClientEvents {
         }
         InteractionHand hand = heldHand(player);
         while (OPEN_MENU.consumeClick()) {
-            if (hand != null && mc.screen == null) ClientHooks.openScreen(hand);
+            if (hand != null && mc.gui.screen() == null) ClientHooks.openScreen(hand);
         }
         if (hand == null || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
             preview = null;
@@ -135,9 +145,7 @@ public final class ClientEvents {
                 shape.placements(settings, origin, doorSide), doorSide, player.isCreative());
     }
 
-    @SubscribeEvent
-    static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
+    private static void drawPreview() {
         Preview p = preview;
         if (p == null) return;
         BlueprintSettings s = p.settings();
@@ -158,13 +166,6 @@ public final class ClientEvents {
             r = 1.0f; g = 0.35f; b = 0.3f;
         }
 
-        Vec3 cam = event.getCamera().getPosition();
-        PoseStack pose = event.getPoseStack();
-        // Our own buffer, flushed right here: Sodium/Iris wrap the shared one and may never draw lines put in it.
-        MultiBufferSource.BufferSource buffers = OUTLINE_BUFFERS;
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
-        pose.pushPose();
-        pose.translate(-cam.x, -cam.y, -cam.z);
         int x0 = BaseShape.startX(s, p.origin()), z0 = BaseShape.startZ(s, p.origin()), y0 = p.origin().getY();
         BaseShape shape = p.shape();
         double e = 0.004;
@@ -178,16 +179,16 @@ public final class ClientEvents {
                     && (pos.getY() - y0 - BaseShape.wallStart(s)) % (s.wallHeight() + 1) == s.wallHeight();
             if (slab && roofBoxes++ < MAX_ROOF_BOXES) {
                 // the floor between two storeys, as a ring on the wall
-                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, pos.getY() + e, pos.getZ() + e,
+                box(pos.getX() + e, pos.getY() + e, pos.getZ() + e,
                         pos.getX() + 1 - e, pos.getY() + 1 - e, pos.getZ() + 1 - e, r, g, b, 0.5f);
             }
             if (placement.part() == BaseShape.Part.ROOF) {
                 if (s.effectiveRoof() == BlueprintSettings.Roof.FLAT && !shape.edge(pos.getX() - x0, pos.getZ() - z0)) continue;
                 if (roofBoxes++ >= MAX_ROOF_BOXES) continue;
-                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, pos.getY() + e, pos.getZ() + e,
+                box(pos.getX() + e, pos.getY() + e, pos.getZ() + e,
                         pos.getX() + 1 - e, pos.getY() + 1 - e, pos.getZ() + 1 - e, r, g, b, 0.6f);
             } else if (shape.edge(pos.getX() - x0, pos.getZ() - z0) && columns.add(BlockPos.asLong(pos.getX(), 0, pos.getZ()))) {
-                LevelRenderer.renderLineBox(pose, lines, pos.getX() + e, y0 + e, pos.getZ() + e,
+                box(pos.getX() + e, y0 + e, pos.getZ() + e,
                         pos.getX() + 1 - e, wallTop - e, pos.getZ() + 1 - e, r, g, b, 0.9f);
             }
         }
@@ -202,7 +203,7 @@ public final class ClientEvents {
                 for (int x = 0; x < shape.width(); x++) {
                     BlockPos wall = new BlockPos(x0 + x, wy, z0 + z);
                     if (!shape.edge(x, z) || walls.contains(wall)) continue;
-                    LevelRenderer.renderLineBox(pose, lines, wall.getX() + 0.1, wy + 0.02, wall.getZ() + 0.1,
+                    box(wall.getX() + 0.1, wy + 0.02, wall.getZ() + 0.1,
                             wall.getX() + 0.9, wy + Math.min(2, s.wallHeight()) - 0.02, wall.getZ() + 0.9, 0.4f, 0.8f, 1f, 1f);
                 }
             }
@@ -211,45 +212,45 @@ public final class ClientEvents {
         int shown = 0;
         for (BlockPos pos : p.blocked()) {
             if (shown++ >= MAX_BLOCKED_BOXES) break;
-            LevelRenderer.renderLineBox(pose, lines, pos.getX() + 0.06, pos.getY() + 0.06, pos.getZ() + 0.06,
+            box(pos.getX() + 0.06, pos.getY() + 0.06, pos.getZ() + 0.06,
                     pos.getX() + 0.94, pos.getY() + 0.94, pos.getZ() + 0.94, 1f, 0.15f, 0.15f, 1f);
-            LevelRenderer.renderLineBox(pose, lines, pos.getX() - 0.002, pos.getY() - 0.002, pos.getZ() - 0.002,
+            box(pos.getX() - 0.002, pos.getY() - 0.002, pos.getZ() - 0.002,
                     pos.getX() + 1.002, pos.getY() + 1.002, pos.getZ() + 1.002, 1f, 0.15f, 0.15f, 1f);
         }
         // the block you are aiming at, so the centre is obvious
         int cx = p.origin().getX(), cz = p.origin().getZ();
-        LevelRenderer.renderLineBox(pose, lines, cx + 0.3, y0 + 0.01, cz + 0.3, cx + 0.7, y0 + 0.4, cz + 0.7, 1f, 1f, 1f, 1f);
-        pose.popPose();
-        buffers.endBatch(RenderType.lines());
+        box(cx + 0.3, y0 + 0.01, cz + 0.3, cx + 0.7, y0 + 0.4, cz + 0.7, 1f, 1f, 1f, 1f);
     }
 
-    private static final MultiBufferSource.BufferSource OUTLINE_BUFFERS =
-            MultiBufferSource.immediate(new com.mojang.blaze3d.vertex.ByteBufferBuilder(1 << 18));
+    private static void box(double x0, double y0, double z0, double x1, double y1, double z1, float r, float g, float b, float a) {
+        net.minecraft.gizmos.Gizmos.cuboid(new net.minecraft.world.phys.AABB(x0, y0, z0, x1, y1, z1),
+                net.minecraft.gizmos.GizmoStyle.stroke(net.minecraft.util.ARGB.colorFromFloat(a, r, g, b), 2.0F));
+    }
 
     @SubscribeEvent
     static void onRenderGui(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         Preview p = preview;
-        if (p == null || mc.screen != null || mc.options.hideGui) return;
-        GuiGraphics g = event.getGuiGraphics();
+        if (p == null || mc.gui.screen() != null || mc.gui.hud.isHidden()) return;
+        GuiGraphicsExtractor g = event.getGuiGraphics();
         BlueprintSettings s = p.settings();
         Component summary = Component.translatable("tooltip.baseblueprint.summary",
                 Component.translatable("shape.baseblueprint." + s.shape().getSerializedName()), s.width(), s.length(),
                 Component.translatable("floor.baseblueprint." + s.floor().getSerializedName()), s.wallHeight());
         int cx = g.guiWidth() / 2, y = g.guiHeight() / 2 + 14;
-        g.drawCenteredString(mc.font, summary, cx, y, 0xFFE0E0E0);
+        g.centeredText(mc.font, summary, cx, y, 0xFFE0E0E0);
         if (p.block() == null) {
             y += 11;
-            g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW),
+            g.centeredText(mc.font, Component.translatable("hud.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW),
                     cx, y, 0xFFFFFFFF);
         } else if (p.helper()) {
             y += 11;
-            g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.helper").withStyle(ChatFormatting.GOLD),
+            g.centeredText(mc.font, Component.translatable("hud.baseblueprint.helper").withStyle(ChatFormatting.GOLD),
                     cx, y, 0xFFFFFFFF);
             // what the Bubie will take from its chest
             for (Map.Entry<Block, int[]> entry : p.counts().entrySet()) {
                 y += 11;
-                g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.helper_count", entry.getValue()[0],
+                g.centeredText(mc.font, Component.translatable("hud.baseblueprint.helper_count", entry.getValue()[0],
                         entry.getKey().getName()).withStyle(ChatFormatting.GRAY), cx, y, 0xFFFFFFFF);
             }
         } else {
@@ -262,18 +263,18 @@ public final class ClientEvents {
                         : Component.translatable("hud.baseblueprint.count", entry.getKey().getName(), have, need)
                         .withStyle(have >= need ? ChatFormatting.GREEN
                                 : BlueprintConfig.containerRadius() > 0 ? ChatFormatting.GOLD : ChatFormatting.RED);
-                g.drawCenteredString(mc.font, line, cx, y, 0xFFFFFFFF);
+                g.centeredText(mc.font, line, cx, y, 0xFFFFFFFF);
             }
             if (p.maybeFromContainers()) {
                 y += 11;
-                g.drawCenteredString(mc.font, Component.translatable("hud.baseblueprint.containers", BlueprintConfig.containerRadius())
+                g.centeredText(mc.font, Component.translatable("hud.baseblueprint.containers", BlueprintConfig.containerRadius())
                         .withStyle(ChatFormatting.GRAY), cx, y, 0xFFFFFFFF);
             }
         }
         y -= 11; // the blocked line below goes right after the last one
         if (!p.blocked().isEmpty() && p.block() != null) {
             boolean partial = BlueprintConfig.allowPartial() || p.helper(); // a helper just skips what is in the way
-            g.drawCenteredString(mc.font, Component.translatable(partial ? "hud.baseblueprint.blocked_partial"
+            g.centeredText(mc.font, Component.translatable(partial ? "hud.baseblueprint.blocked_partial"
                     : "hud.baseblueprint.blocked", p.blocked().size())
                     .withStyle(partial ? ChatFormatting.GRAY : ChatFormatting.RED), cx, y + 22, 0xFFFFFFFF);
         }
