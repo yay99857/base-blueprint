@@ -4,7 +4,7 @@
 
 *🇧🇷 Versão em português mais abaixo.*
 
-For **Minecraft 26.3 and 1.21.1 (NeoForge)**. An early-game item, crafted from a crafting table and 3 paper, that builds a whole base at once. Each blueprint builds **8 bases** (repair it with paper in an anvil).
+For **Minecraft 26.3, 1.21.1 (NeoForge) and 1.20.1 (Forge, final frozen)**. An early-game item, crafted from a crafting table and 3 paper, that builds a whole base at once. Each blueprint builds **8 bases** (repair it with paper in an anvil).
 
 ![Four bases built with the blueprint](https://media.forgecdn.net/attachments/2215/596/overview-jpg.jpg)
 
@@ -47,7 +47,7 @@ Server config: max size, max wall height, undo, partial builds, container radius
 - Material separado para o piso e para as paredes e o teto.
 - Cada planta constrói **8 bases** (conserta na bigorna com papel).
 - Prévia no mundo (verde = dá para construir, vermelho = ocupado), desfazer salvo com o mundo, respeita proteções de claim.
-- Para **Minecraft 26.3** e **1.21.1** (NeoForge).
+- Para **Minecraft 26.3**, **1.21.1** (NeoForge) e **1.20.1** (Forge, versão final congelada).
 - Com o mod **Bubie**: escolha **Quem constrói: Bubie** no menu, mire num bloco, veja a prévia em âmbar e clique. O seu Bubie mais próximo constrói a base ali, bloco por bloco, com os blocos do baú dele.
 
 ---
@@ -65,3 +65,5 @@ Screenshots: uploaded to the project's Media tab (attachments 2215/596-603, towe
 
 Minecraft 26.3 lives on the `mc-26.3` branch (Java 25, jar `baseblueprint-<version>-26.3.jar`; game versions 26.3 = 17045,
 NeoForge = 10150, Java 25 = 14454). 1.4.0 for 26.3 = fileID **9807300** (2026-11-25).
+
+Minecraft 1.20.1 lives on the `forge-1.20.1` branch (final, frozen; Java 17, jar `baseblueprint-forge-1.20.1-1.4.0.jar`; game versions 1.20.1 = 9990, Forge = 7498, Java 17 = 8326, Client = 9638, Server = 9639). 1.4.0 for Forge 1.20.1 = fileID **9826016** (2026-11-26).
