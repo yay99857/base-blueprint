@@ -5,14 +5,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.bus.api.Event;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.common.NeoForge;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.fml.ModList;
 
 import javax.annotation.Nullable;
 
 /**
- * Fired on the NeoForge event bus when a player right-clicks a block with a blueprint set to "Built by: Bubie" in its
+ * Fired on the Forge event bus when a player right-clicks a block with a blueprint set to "Built by: Bubie" in its
  * menu. Another mod (Bubie) can hand the blueprint to one of its builders: it calls {@link #accept} with the message
  * to show the player.
  * When nobody accepts, the player is told no helper is nearby. The blueprint stack is the player's own: copy it,
@@ -38,7 +38,8 @@ public class HelperBuildEvent extends Event {
 
     /** Offers the job to the helpers and tells the player who took it, or that none is near. True if one took it. */
     public static boolean ask(ServerPlayer player, ItemStack blueprint, BlockPos origin) {
-        HelperBuildEvent event = NeoForge.EVENT_BUS.post(new HelperBuildEvent(player, blueprint, origin));
+        HelperBuildEvent event = new HelperBuildEvent(player, blueprint, origin);
+        MinecraftForge.EVENT_BUS.post(event);
         player.displayClientMessage(event.isAccepted() ? event.getMessage()
                 : Component.translatable("message.baseblueprint.no_helper").withStyle(ChatFormatting.YELLOW), true);
         return event.isAccepted();

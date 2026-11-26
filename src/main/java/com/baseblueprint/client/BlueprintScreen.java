@@ -10,23 +10,23 @@ import com.baseblueprint.network.UpdateSettingsPayload;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.model.data.ModelData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,7 +175,7 @@ public class BlueprintScreen extends Screen {
             addRenderableWidget(CycleButton.booleanBuilder(Component.translatable("builder.baseblueprint.helper"),
                             Component.translatable("builder.baseblueprint.you"))
                     .withInitialValue(settings.helper())
-                    .withTooltip(v -> net.minecraft.client.gui.components.Tooltip.create(Component.translatable(
+                    .withTooltip(v -> Tooltip.create(Component.translatable(
                             v ? "screen.baseblueprint.builder.helper_tip" : "screen.baseblueprint.builder.you_tip")))
                     .create(left + PANEL_W / 2 - 134, top + PANEL_H - 28, 130, 20,
                             Component.translatable("screen.baseblueprint.builder"), (b, v) -> update(settings.withHelper(v))));
@@ -232,12 +232,12 @@ public class BlueprintScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double delta) {
         if (view3d && inPreview(mx, my)) {
-            zoom = Mth.clamp(zoom * (sy > 0 ? 1.15f : 1 / 1.15f), 0.4f, 6f);
+            zoom = Mth.clamp(zoom * (delta > 0 ? 1.15f : 1 / 1.15f), 0.4f, 6f);
             return true;
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, delta);
     }
 
     private void render3d(GuiGraphics g, int gx, int gy) {
@@ -270,8 +270,8 @@ public class BlueprintScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(g, mouseX, mouseY, partialTick);
+    public void renderBackground(GuiGraphics g) {
+        super.renderBackground(g);
         g.fill(left - 1, top - 1, left + PANEL_W + 1, top + PANEL_H + 1, 0xFF0B1E33);
         g.fill(left, top, left + PANEL_W, top + PANEL_H, 0xF0153A5E);
         g.fill(left + 10, top + 24, left + 10 + GRID, top + 24 + GRID, 0xFF0E2A47);
@@ -279,6 +279,7 @@ public class BlueprintScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        renderBackground(g);
         super.render(g, mouseX, mouseY, partialTick);
         g.drawCenteredString(font, title, left + PANEL_W / 2, top + 9, 0xFFFFFFFF);
         if (view3d && settings.wallHeight() > 0) {
@@ -365,8 +366,8 @@ public class BlueprintScreen extends Screen {
     public void onClose() {
         ItemStack stack = heldStack();
         if (stack.is(BaseBlueprint.BLUEPRINT.get())) {
-            stack.set(ModComponents.SETTINGS.get(), settings); // instant local preview; the server confirms
-            PacketDistributor.sendToServer(new UpdateSettingsPayload(hand == InteractionHand.MAIN_HAND, settings));
+            ModComponents.setSettings(stack, settings); // instant local preview; the server confirms
+            BaseBlueprint.CHANNEL.sendToServer(new UpdateSettingsPayload(hand == InteractionHand.MAIN_HAND, settings));
         }
         super.onClose();
     }

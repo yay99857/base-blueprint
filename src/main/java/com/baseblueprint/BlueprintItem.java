@@ -1,21 +1,24 @@
 package com.baseblueprint;
 
 import com.baseblueprint.api.HelperBuildEvent;
-import net.minecraft.core.BlockPos;
 import com.baseblueprint.client.ClientHooks;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -50,7 +53,8 @@ public class BlueprintItem extends Item {
             if (!level.isClientSide) {
                 if (BaseBuilder.isValidMaterial(block)) {
                     boolean walls = BaseBuilder.settings(stack).pick() == BlueprintSettings.Pick.WALLS;
-                    stack.set(walls ? ModComponents.WALL_MATERIAL.get() : ModComponents.MATERIAL.get(), block);
+                    if (walls) ModComponents.setWallMaterial(stack, block);
+                    else ModComponents.setMaterial(stack, block);
                     player.displayClientMessage(Component.translatable(walls ? "message.baseblueprint.wall_material_set"
                                     : "message.baseblueprint.material_set", block.getName())
                             .withStyle(ChatFormatting.AQUA), true);
@@ -66,7 +70,7 @@ public class BlueprintItem extends Item {
             BlockPos origin = BaseBuilder.target(level, ctx.getClickedPos(), ctx.getClickedFace());
             // "Built by: Bubie" in the menu: the same click, on the same preview, hands the job to a helper
             if (BaseBuilder.settings(stack).helper() && HelperBuildEvent.available()
-                    && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    && player instanceof ServerPlayer serverPlayer) {
                 HelperBuildEvent.ask(serverPlayer, stack, origin);
             } else {
                 BaseBuilder.build(player, stack, origin);
@@ -78,11 +82,11 @@ public class BlueprintItem extends Item {
     /** Paper repairs it in an anvil. */
     @Override
     public boolean isValidRepairItem(ItemStack stack, ItemStack repair) {
-        return repair.is(net.minecraft.world.item.Items.PAPER);
+        return repair.is(Items.PAPER);
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         BlueprintSettings s = BaseBuilder.settings(stack);
         int left = stack.getMaxDamage() - stack.getDamageValue();
         tooltip.add(Component.translatable("tooltip.baseblueprint.uses", left, stack.getMaxDamage())
@@ -95,11 +99,11 @@ public class BlueprintItem extends Item {
             tooltip.add(Component.translatable("tooltip.baseblueprint.storeys", s.effectiveStoreys(), s.wallHeight())
                     .withStyle(ChatFormatting.GRAY));
         }
-        Block material = stack.get(ModComponents.MATERIAL.get());
+        Block material = ModComponents.getMaterial(stack);
         tooltip.add(material != null
                 ? Component.translatable("tooltip.baseblueprint.material", material.getName()).withStyle(ChatFormatting.AQUA)
                 : Component.translatable("tooltip.baseblueprint.no_material").withStyle(ChatFormatting.YELLOW));
-        Block walls = stack.get(ModComponents.WALL_MATERIAL.get());
+        Block walls = ModComponents.getWallMaterial(stack);
         if (walls != null) {
             tooltip.add(Component.translatable("tooltip.baseblueprint.wall_material", walls.getName()).withStyle(ChatFormatting.AQUA));
         }

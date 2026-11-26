@@ -8,7 +8,7 @@
     { "item": "minecraft:paper" }
   ],
   "result": {
-    "count": 1,
-    "id": "baseblueprint:base_blueprint"
+    "item": "baseblueprint:base_blueprint",
+    "count": 1
   }
 }

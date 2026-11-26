@@ -2,7 +2,10 @@
 
 # Planta de Base (Base Blueprint)
 
-Mod para **Minecraft 1.21.1 (NeoForge)**. Um item de early game que constrói a base de uma vez:
+> **Branch `forge-1.20.1`: versão final congelada.** Port do Base Blueprint 1.4.0 para **Minecraft 1.20.1 (Forge 47.1.3 ou mais novo;
+> o mesmo jar roda no NeoForge 1.20.1)**.
+
+Mod para **Minecraft 1.20.1 (Forge 47)**. Um item de early game que constrói a base de uma vez:
 um piso redondo, quadrado, octogonal ou hexagonal, com paredes, porta, teto ou cúpula opcionais, do
 tamanho que você escolher, usando blocos do seu inventário, da sua mochila e dos baús por perto. O círculo segue a mesma regra dos geradores de círculo em pixel
 (como o donatstudios PixelCircleGenerator).
@@ -54,8 +57,7 @@ Conserta na bigorna com papel.
 
 ## Build
 ```
-./gradlew runShots             # monta bases de exemplo e tira as imagens de docs/screenshots (run/screenshots)
-./gradlew build                # jar em build/libs/baseblueprint-<versão>.jar
+./gradlew build                # jar em build/libs/baseblueprint-forge-1.20.1-<versão>.jar
 ./gradlew runGameTestServer    # testes in-game
 ./gradlew runClient            # cliente de desenvolvimento
 ```

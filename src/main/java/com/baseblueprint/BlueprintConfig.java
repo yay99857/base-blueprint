@@ -1,19 +1,19 @@
 package com.baseblueprint;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 /** Server config (world/serverconfig/baseblueprint-server.toml), synced to clients so the menu shows the same limits. */
 public final class BlueprintConfig {
-    public static final ModConfigSpec SPEC;
-    public static final ModConfigSpec.IntValue MAX_SIZE;
-    public static final ModConfigSpec.IntValue MAX_WALL_HEIGHT;
-    public static final ModConfigSpec.BooleanValue ALLOW_UNDO;
-    public static final ModConfigSpec.BooleanValue ALLOW_PARTIAL;
-    public static final ModConfigSpec.IntValue CONTAINER_RADIUS;
-    public static final ModConfigSpec.IntValue MAX_FOUNDATION;
+    public static final ForgeConfigSpec SPEC;
+    public static final ForgeConfigSpec.IntValue MAX_SIZE;
+    public static final ForgeConfigSpec.IntValue MAX_WALL_HEIGHT;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_UNDO;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_PARTIAL;
+    public static final ForgeConfigSpec.IntValue CONTAINER_RADIUS;
+    public static final ForgeConfigSpec.IntValue MAX_FOUNDATION;
 
     static {
-        ModConfigSpec.Builder b = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
         MAX_SIZE = b.comment("Largest width or length a base can have, in blocks.")
                 .defineInRange("maxSize", 64, 3, 256);
         MAX_WALL_HEIGHT = b.comment("Tallest wall the blueprint can build, in blocks.")

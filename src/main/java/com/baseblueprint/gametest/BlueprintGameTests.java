@@ -7,16 +7,35 @@ import com.baseblueprint.BlueprintConfig;
 import com.baseblueprint.BlueprintSettings;
 import com.baseblueprint.ModComponents;
 import com.baseblueprint.UndoHistory;
+import com.baseblueprint.api.HelperBuildEvent;
+import com.google.gson.JsonElement;
+import com.mojang.authlib.GameProfile;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 /** Run with ./gradlew runGameTestServer (exits non-zero when a test fails). */
 @GameTestHolder(BaseBlueprint.MOD_ID)
@@ -24,15 +43,19 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public class BlueprintGameTests {
     private static final String EMPTY = "empty";
 
+    private static <T> void assertEq(GameTestHelper helper, T actual, T expected, String message) {
+        helper.assertTrue(Objects.equals(actual, expected), message + ": expected " + expected + ", got " + actual);
+    }
+
     private static ItemStack blueprint(BlueprintSettings settings) {
         ItemStack stack = new ItemStack(BaseBlueprint.BLUEPRINT.get());
-        stack.set(ModComponents.SETTINGS.get(), settings);
-        stack.set(ModComponents.MATERIAL.get(), Blocks.COBBLESTONE);
+        ModComponents.setSettings(stack, settings);
+        ModComponents.setMaterial(stack, Blocks.COBBLESTONE);
         return stack;
     }
 
     private static Player survivor(GameTestHelper helper, int cobble) {
-        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        Player player = helper.makeMockSurvivalPlayer();
         if (cobble > 0) player.getInventory().add(new ItemStack(Items.COBBLESTONE, cobble));
         return player;
     }
@@ -40,12 +63,14 @@ public class BlueprintGameTests {
     /** "Built by: Bubie" is kept on the blueprint, and a blueprint from before 1.4 is still built by the player. */
     @GameTest(template = EMPTY)
     public static void builtByAHelperIsSavedAndOldBlueprintsAreNot(GameTestHelper helper) {
-        var ops = com.mojang.serialization.JsonOps.INSTANCE;
         BlueprintSettings chosen = BlueprintSettings.DEFAULT.withHelper(true);
-        com.google.gson.JsonElement json = BlueprintSettings.CODEC.encodeStart(ops, chosen).getOrThrow();
-        helper.assertTrue(BlueprintSettings.CODEC.parse(ops, json).getOrThrow().equals(chosen), "the choice is saved");
+        JsonElement json = BlueprintSettings.CODEC.encodeStart(JsonOps.INSTANCE, chosen)
+                .getOrThrow(false, msg -> { throw new RuntimeException(msg); });
+        helper.assertTrue(BlueprintSettings.CODEC.parse(JsonOps.INSTANCE, json)
+                .getOrThrow(false, msg -> { throw new RuntimeException(msg); }).equals(chosen), "the choice is saved");
         json.getAsJsonObject().remove("helper");
-        helper.assertTrue(!BlueprintSettings.CODEC.parse(ops, json).getOrThrow().helper(), "a 1.3 blueprint is built by the player");
+        helper.assertTrue(!BlueprintSettings.CODEC.parse(JsonOps.INSTANCE, json)
+                .getOrThrow(false, msg -> { throw new RuntimeException(msg); }).helper(), "a 1.3 blueprint is built by the player");
         helper.assertTrue(chosen.withWidth(9).clamped().helper(), "changing the size keeps the choice");
         helper.succeed();
     }
@@ -53,19 +78,19 @@ public class BlueprintGameTests {
     /** A click with "Built by: Bubie" offers the job to the helpers: one takes it, or the player is told none is near. */
     @GameTest(template = EMPTY)
     public static void aHelperTakesTheJobOrNobodyDoes(GameTestHelper helper) {
-        net.minecraft.server.level.ServerPlayer player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(
-                helper.getLevel(), new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "BlueprintTester"));
+        ServerPlayer player = FakePlayerFactory.get(
+                helper.getLevel(), new GameProfile(UUID.randomUUID(), "BlueprintTester"));
         ItemStack stack = blueprint(BlueprintSettings.DEFAULT.withHelper(true));
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
-        helper.assertTrue(!com.baseblueprint.api.HelperBuildEvent.ask(player, stack, origin), "nobody takes it");
-        java.util.function.Consumer<com.baseblueprint.api.HelperBuildEvent> taker = event -> {
-            if (event.getOrigin().equals(origin)) event.accept(net.minecraft.network.chat.Component.literal("on it"));
+        helper.assertTrue(!HelperBuildEvent.ask(player, stack, origin), "nobody takes it");
+        Consumer<HelperBuildEvent> taker = event -> {
+            if (event.getOrigin().equals(origin)) event.accept(Component.literal("on it"));
         };
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(com.baseblueprint.api.HelperBuildEvent.class, taker);
+        MinecraftForge.EVENT_BUS.addListener(taker);
         try {
-            helper.assertTrue(com.baseblueprint.api.HelperBuildEvent.ask(player, stack, origin), "a helper takes it");
+            helper.assertTrue(HelperBuildEvent.ask(player, stack, origin), "a helper takes it");
         } finally {
-            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(taker);
+            MinecraftForge.EVENT_BUS.unregister(taker);
         }
         helper.assertTrue(helper.getLevel().getBlockState(origin).isAir(), "nothing is placed at once");
         helper.succeed();
@@ -125,7 +150,7 @@ public class BlueprintGameTests {
 
     @GameTest(template = EMPTY)
     public static void replaceablePlantsDoNotBlock(GameTestHelper helper) {
-        helper.setBlock(new BlockPos(5, 1, 4), Blocks.SHORT_GRASS);
+        helper.setBlock(new BlockPos(5, 1, 4), Blocks.GRASS);
         Player player = survivor(helper, 64);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
         BlueprintSettings s = new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0);
@@ -182,8 +207,8 @@ public class BlueprintGameTests {
 
     @GameTest(template = EMPTY)
     public static void offhandBlockWinsAndCreativeIsFree(GameTestHelper helper) {
-        Player player = helper.makeMockPlayer(GameType.CREATIVE);
-        player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS));
+        Player player = helper.makeMockPlayer();
+        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS));
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
         BlueprintSettings s = new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0);
         int placed = BaseBuilder.build(player, blueprint(s), origin);
@@ -216,8 +241,8 @@ public class BlueprintGameTests {
         BaseShape hex = BaseShape.of(BlueprintSettings.Shape.HEXAGON, 9, 7);
         BlueprintSettings o = new BlueprintSettings(BlueprintSettings.Shape.OCTAGON, 9, 9, BlueprintSettings.Floor.FILLED, 0);
         BlueprintSettings h = new BlueprintSettings(BlueprintSettings.Shape.HEXAGON, 9, 7, BlueprintSettings.Floor.FILLED, 0);
-        helper.assertValueEqual(oct.blockCount(o), 69, "9x9 octagon cells");
-        helper.assertValueEqual(hex.blockCount(h), 47, "9x7 hexagon cells");
+        assertEq(helper, oct.blockCount(o), 69, "9x9 octagon cells");
+        assertEq(helper, hex.blockCount(h), 47, "9x7 hexagon cells");
         helper.assertFalse(oct.filled(0, 0), "octagon corner is cut");
         helper.assertTrue(oct.filled(4, 0) && oct.filled(0, 4), "octagon sides are full");
         helper.assertTrue(hex.filled(0, 3), "hexagon point on the left");
@@ -233,20 +258,20 @@ public class BlueprintGameTests {
         player.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16));
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
         ItemStack stack = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 1));
-        stack.set(ModComponents.WALL_MATERIAL.get(), Blocks.OAK_PLANKS);
+        ModComponents.setWallMaterial(stack, Blocks.OAK_PLANKS);
         int placed = BaseBuilder.build(player, stack, origin);
-        helper.assertValueEqual(placed, 25 + 16, "blocks placed");
+        assertEq(helper, placed, 25 + 16, "blocks placed");
         helper.assertBlockPresent(Blocks.COBBLESTONE, new BlockPos(4, 1, 4));
         helper.assertBlockPresent(Blocks.OAK_PLANKS, new BlockPos(2, 2, 2));
-        helper.assertValueEqual(BaseBuilder.countItem(player, Items.COBBLESTONE), 0, "cobblestone left");
-        helper.assertValueEqual(BaseBuilder.countItem(player, Items.OAK_PLANKS), 0, "planks left");
+        assertEq(helper, BaseBuilder.countItem(player, Items.COBBLESTONE), 0, "cobblestone left");
+        assertEq(helper, BaseBuilder.countItem(player, Items.OAK_PLANKS), 0, "planks left");
         helper.succeed();
     }
 
     /** The door is a 1x2 opening in the middle of the wall facing the player. */
     @GameTest(template = EMPTY)
     public static void doorFacesThePlayer(GameTestHelper helper) {
-        Player player = helper.makeMockPlayer(GameType.CREATIVE);
+        Player player = helper.makeMockPlayer();
         BlockPos south = helper.absolutePos(new BlockPos(4, 1, 12));
         player.moveTo(south.getX() + 0.5, south.getY(), south.getZ() + 0.5);
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
@@ -265,8 +290,8 @@ public class BlueprintGameTests {
     public static void flatRoofCoversTheBase(GameTestHelper helper) {
         BlueprintSettings s = with(BlueprintSettings.Shape.SQUARE, 5, 5, BlueprintSettings.Floor.FILLED, 2,
                 false, BlueprintSettings.Roof.FLAT, false);
-        helper.assertValueEqual(BaseShape.of(s).blockCount(s), 25 + 16 * 2 + 25, "blocks for floor, walls and roof");
-        Player player = helper.makeMockPlayer(GameType.CREATIVE);
+        assertEq(helper, BaseShape.of(s).blockCount(s), 25 + 16 * 2 + 25, "blocks for floor, walls and roof");
+        Player player = helper.makeMockPlayer();
         BaseBuilder.build(player, blueprint(s), helper.absolutePos(new BlockPos(4, 1, 4)));
         helper.assertBlockPresent(Blocks.COBBLESTONE, new BlockPos(4, 4, 4));
         helper.assertBlockNotPresent(Blocks.COBBLESTONE, new BlockPos(4, 3, 4)); // the room inside stays empty
@@ -279,7 +304,7 @@ public class BlueprintGameTests {
         BlueprintSettings s = with(BlueprintSettings.Shape.CIRCLE, 7, 7, BlueprintSettings.Floor.NONE, 1,
                 false, BlueprintSettings.Roof.DOME, false);
         BaseShape shape = BaseShape.of(s);
-        java.util.Set<Long> covered = new java.util.HashSet<>();
+        Set<Long> covered = new HashSet<>();
         for (BaseShape.Placement p : shape.placements(s, BlockPos.ZERO, null)) {
             if (p.part() == BaseShape.Part.ROOF) covered.add(BlockPos.asLong(p.pos().getX(), 0, p.pos().getZ()));
         }
@@ -291,7 +316,7 @@ public class BlueprintGameTests {
                 }
             }
         }
-        Player player = helper.makeMockPlayer(GameType.CREATIVE);
+        Player player = helper.makeMockPlayer();
         // the test box is 5 blocks tall (barriers above), so the base starts at its bottom layer
         int placed = BaseBuilder.build(player, blueprint(s), helper.absolutePos(new BlockPos(4, 0, 4)));
         helper.assertTrue(placed > 0, "dome not built");
@@ -309,7 +334,7 @@ public class BlueprintGameTests {
                 false, BlueprintSettings.Roof.NONE, true);
         int placed = BaseBuilder.build(player, blueprint(s), helper.absolutePos(new BlockPos(4, 3, 4)));
         // the test box floor is y = 0 (open below it is the test platform), so three layers go under the floor
-        helper.assertValueEqual(placed, 9 + 9 * 3, "floor plus three foundation layers");
+        assertEq(helper, placed, 9 + 9 * 3, "floor plus three foundation layers");
         helper.assertBlockPresent(Blocks.COBBLESTONE, new BlockPos(3, 0, 3));
         helper.assertBlockPresent(Blocks.COBBLESTONE, new BlockPos(5, 2, 5));
         helper.succeed();
@@ -321,15 +346,14 @@ public class BlueprintGameTests {
         Player player = survivor(helper, 0);
         BlockPos chestPos = new BlockPos(1, 1, 1);
         helper.setBlock(chestPos, Blocks.CHEST);
-        var chest = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK,
-                helper.absolutePos(chestPos), null);
+        var chest = helper.getBlockEntity(chestPos).getCapability(ForgeCapabilities.ITEM_HANDLER, null).orElseThrow(IllegalStateException::new);
         chest.insertItem(0, new ItemStack(Items.COBBLESTONE, 20), false);
         BlockPos near = helper.absolutePos(new BlockPos(1, 1, 3));
         player.moveTo(near.getX() + 0.5, near.getY(), near.getZ() + 0.5);
         int placed = BaseBuilder.build(player, blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3,
                 BlueprintSettings.Floor.FILLED, 0)), helper.absolutePos(new BlockPos(5, 1, 5)));
-        helper.assertValueEqual(placed, 9, "blocks placed from the chest");
-        helper.assertValueEqual(chest.getStackInSlot(0).getCount(), 11, "cobblestone left in the chest");
+        assertEq(helper, placed, 9, "blocks placed from the chest");
+        assertEq(helper, chest.getStackInSlot(0).getCount(), 11, "cobblestone left in the chest");
         helper.succeed();
     }
 
@@ -339,13 +363,12 @@ public class BlueprintGameTests {
         Player player = survivor(helper, 64);
         BaseBuilder.build(player, blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3,
                 BlueprintSettings.Floor.FILLED, 1)), helper.absolutePos(new BlockPos(4, 1, 4)));
-        var registries = helper.getLevel().registryAccess();
-        var tag = UndoHistory.get(helper.getLevel().getServer()).save(new net.minecraft.nbt.CompoundTag(), registries);
-        UndoHistory reloaded = UndoHistory.load(tag, registries);
+        var tag = UndoHistory.get(helper.getLevel().getServer()).save(new CompoundTag());
+        UndoHistory reloaded = UndoHistory.load(tag);
         UndoHistory.LastBuild last = reloaded.get(player.getUUID());
         helper.assertTrue(last != null, "no history after reload");
-        helper.assertValueEqual(last.blocks().size(), 9 + 8, "blocks remembered");
-        helper.assertValueEqual(last.blocks().get(0).block(), Blocks.COBBLESTONE, "block remembered");
+        assertEq(helper, last.blocks().size(), 9 + 8, "blocks remembered");
+        assertEq(helper, last.blocks().get(0).block(), Blocks.COBBLESTONE, "block remembered");
         helper.succeed();
     }
 
@@ -354,21 +377,21 @@ public class BlueprintGameTests {
     public static void blueprintWearsOutAfterEightBases(GameTestHelper helper) {
         Player player = survivor(helper, 64);
         ItemStack stack = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0));
-        helper.assertValueEqual(stack.getMaxDamage(), 8, "uses");
+        assertEq(helper, stack.getMaxDamage(), 8, "uses");
         BlockPos origin = helper.absolutePos(new BlockPos(4, 1, 4));
         for (int i = 1; i <= 8; i++) {
-            helper.assertValueEqual(BaseBuilder.build(player, stack, origin), 9, "blocks placed on build " + i);
+            assertEq(helper, BaseBuilder.build(player, stack, origin), 9, "blocks placed on build " + i);
             if (i < 8) {
-                helper.assertValueEqual(stack.getDamageValue(), i, "uses spent after build " + i);
+                assertEq(helper, stack.getDamageValue(), i, "uses spent after build " + i);
                 BaseBuilder.undo(player);
             }
         }
         helper.assertTrue(stack.isEmpty(), "blueprint did not break after 8 bases");
 
-        Player creative = helper.makeMockPlayer(GameType.CREATIVE);
+        Player creative = helper.makeMockPlayer();
         ItemStack free = blueprint(new BlueprintSettings(BlueprintSettings.Shape.SQUARE, 3, 3, BlueprintSettings.Floor.FILLED, 0));
         BaseBuilder.build(creative, free, helper.absolutePos(new BlockPos(4, 2, 4)));
-        helper.assertValueEqual(free.getDamageValue(), 0, "creative wore the blueprint");
+        assertEq(helper, free.getDamageValue(), 0, "creative wore the blueprint");
         helper.succeed();
     }
 
@@ -379,21 +402,21 @@ public class BlueprintGameTests {
                 true, BlueprintSettings.Roof.FLAT, false, BlueprintSettings.Pick.FLOOR, 3);
         BaseShape shape = BaseShape.of(s);
         // ground floor 25, walls 3 x 16 x 2 (minus the 1x2 door), two upper floors of 25 minus the hatch, roof 25
-        helper.assertValueEqual(shape.blockCount(s), 25 + 3 * 32 - 2 + 2 * 24 + 25, "blocks for three storeys");
-        java.util.Map<BlockPos, BaseShape.Part> at = new java.util.HashMap<>();
-        for (BaseShape.Placement p : shape.placements(s, BlockPos.ZERO, net.minecraft.core.Direction.SOUTH)) at.put(p.pos(), p.part());
+        assertEq(helper, shape.blockCount(s), 25 + 3 * 32 - 2 + 2 * 24 + 25, "blocks for three storeys");
+        Map<BlockPos, BaseShape.Part> at = new HashMap<>();
+        for (BaseShape.Placement p : shape.placements(s, BlockPos.ZERO, Direction.SOUTH)) at.put(p.pos(), p.part());
         int x0 = BaseShape.startX(s, BlockPos.ZERO), z0 = BaseShape.startZ(s, BlockPos.ZERO);
         // upper floors at y = 3 and 6, roof at 9; the hatch is on the north side, opposite the door
         for (int y : new int[]{3, 6}) {
-            helper.assertValueEqual(at.get(new BlockPos(x0 + 2, y, z0 + 2)), BaseShape.Part.FLOOR, "floor of the storey at " + y);
-            helper.assertValueEqual(at.get(new BlockPos(x0, y, z0 + 2)), BaseShape.Part.WALL, "wall through the floor at " + y);
+            assertEq(helper, at.get(new BlockPos(x0 + 2, y, z0 + 2)), BaseShape.Part.FLOOR, "floor of the storey at " + y);
+            assertEq(helper, at.get(new BlockPos(x0, y, z0 + 2)), BaseShape.Part.WALL, "wall through the floor at " + y);
             helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, y, z0 + 1)), "no hatch at " + y);
         }
         helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, 4, z0 + 2)), "storey not hollow");
-        helper.assertValueEqual(at.get(new BlockPos(x0 + 2, 9, z0 + 2)), BaseShape.Part.ROOF, "roof on top");
+        assertEq(helper, at.get(new BlockPos(x0 + 2, 9, z0 + 2)), BaseShape.Part.ROOF, "roof on top");
         // the door only on the ground storey
         helper.assertTrue(!at.containsKey(new BlockPos(x0 + 2, 1, z0 + 4)), "no door on the ground storey");
-        helper.assertValueEqual(at.get(new BlockPos(x0 + 2, 4, z0 + 4)), BaseShape.Part.WALL, "door on an upper storey");
+        assertEq(helper, at.get(new BlockPos(x0 + 2, 4, z0 + 4)), BaseShape.Part.WALL, "door on an upper storey");
         helper.succeed();
     }
 }

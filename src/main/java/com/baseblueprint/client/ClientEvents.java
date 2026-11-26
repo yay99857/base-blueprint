@@ -6,6 +6,7 @@ import com.baseblueprint.BaseShape;
 import com.baseblueprint.BlueprintConfig;
 import com.baseblueprint.BlueprintSettings;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.ChatFormatting;
@@ -25,14 +26,14 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.settings.KeyConflictContext;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
@@ -41,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 /** In-world outline preview, the hint under the crosshair and the menu key. */
-@EventBusSubscriber(modid = BaseBlueprint.MOD_ID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = BaseBlueprint.MOD_ID, value = Dist.CLIENT)
 public final class ClientEvents {
     public static final KeyMapping OPEN_MENU = new KeyMapping("key.baseblueprint.menu", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.baseblueprint");
@@ -86,10 +87,15 @@ public final class ClientEvents {
     private ClientEvents() {
     }
 
-    /** Mod-bus event; NeoForge routes it to the mod bus automatically. */
-    @SubscribeEvent
-    static void keys(RegisterKeyMappingsEvent event) {
-        event.register(OPEN_MENU);
+    @Mod.EventBusSubscriber(modid = BaseBlueprint.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static final class ModBus {
+        private ModBus() {
+        }
+
+        @SubscribeEvent
+        static void keys(RegisterKeyMappingsEvent event) {
+            event.register(OPEN_MENU);
+        }
     }
 
     @Nullable
@@ -100,7 +106,8 @@ public final class ClientEvents {
     }
 
     @SubscribeEvent
-    static void onTick(ClientTickEvent.Post event) {
+    static void onTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null || mc.level == null) {
@@ -224,7 +231,7 @@ public final class ClientEvents {
     }
 
     private static final MultiBufferSource.BufferSource OUTLINE_BUFFERS =
-            MultiBufferSource.immediate(new com.mojang.blaze3d.vertex.ByteBufferBuilder(1 << 18));
+            MultiBufferSource.immediate(new BufferBuilder(1 << 18));
 
     @SubscribeEvent
     static void onRenderGui(RenderGuiEvent.Post event) {

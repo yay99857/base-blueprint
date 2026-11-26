@@ -1,7 +1,6 @@
 package com.baseblueprint;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -40,8 +39,7 @@ public final class UndoHistory extends SavedData {
     private final Map<UUID, LastBuild> last = new HashMap<>();
 
     public static UndoHistory get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(UndoHistory::new, UndoHistory::load, null), NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(UndoHistory::load, UndoHistory::new, NAME);
     }
 
     @Nullable
@@ -59,7 +57,7 @@ public final class UndoHistory extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         ListTag players = new ListTag();
         last.forEach((uuid, build) -> {
             CompoundTag entry = new CompoundTag();
@@ -85,7 +83,7 @@ public final class UndoHistory extends SavedData {
         return tag;
     }
 
-    public static UndoHistory load(CompoundTag tag, HolderLookup.Provider registries) {
+    public static UndoHistory load(CompoundTag tag) {
         UndoHistory history = new UndoHistory();
         for (Tag t : tag.getList("Players", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) t;

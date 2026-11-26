@@ -2,14 +2,12 @@ package com.baseblueprint;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringRepresentable;
 
 /**
- * What the blueprint builds. Stored on the item as a data component; fields added after 1.0 are optional in the
+ * What the blueprint builds. Stored on the item in NBT; fields added after 1.0 are optional in the
  * codec, so blueprints made with 1.0 keep working.
  *
  * @param door       leave a 1×2 opening in the wall on the side facing the player
@@ -121,31 +119,35 @@ public record BlueprintSettings(Shape shape, int width, int length, Floor floor,
             Codec.BOOL.optionalFieldOf("helper", false).forGetter(BlueprintSettings::helper)
     ).apply(i, BlueprintSettings::new));
 
-    private static <E extends Enum<E>> StreamCodec<ByteBuf, E> enumCodec(E[] values) {
-        return ByteBufCodecs.VAR_INT.map(n -> values[Mth.clamp(n, 0, values.length - 1)], Enum::ordinal);
+    public void write(FriendlyByteBuf buf) {
+        buf.writeEnum(shape);
+        buf.writeVarInt(width);
+        buf.writeVarInt(length);
+        buf.writeEnum(floor);
+        buf.writeVarInt(wallHeight);
+        buf.writeBoolean(door);
+        buf.writeEnum(roof);
+        buf.writeBoolean(foundation);
+        buf.writeEnum(pick);
+        buf.writeVarInt(storeys);
+        buf.writeBoolean(helper);
     }
 
-    /** The options added since 1.1, grouped so the stream codec stays within composite's arity. */
-    private record Extras(boolean door, Roof roof, boolean foundation, Pick pick, int storeys, boolean helper) {
-        static final StreamCodec<ByteBuf, Extras> CODEC = StreamCodec.composite(
-                ByteBufCodecs.BOOL, Extras::door,
-                enumCodec(Roof.values()), Extras::roof,
-                ByteBufCodecs.BOOL, Extras::foundation,
-                enumCodec(Pick.values()), Extras::pick,
-                ByteBufCodecs.VAR_INT, Extras::storeys,
-                ByteBufCodecs.BOOL, Extras::helper,
-                Extras::new);
+    public static BlueprintSettings read(FriendlyByteBuf buf) {
+        return new BlueprintSettings(
+                buf.readEnum(Shape.class),
+                buf.readVarInt(),
+                buf.readVarInt(),
+                buf.readEnum(Floor.class),
+                buf.readVarInt(),
+                buf.readBoolean(),
+                buf.readEnum(Roof.class),
+                buf.readBoolean(),
+                buf.readEnum(Pick.class),
+                buf.readVarInt(),
+                buf.readBoolean()
+        );
     }
-
-    public static final StreamCodec<ByteBuf, BlueprintSettings> STREAM_CODEC = StreamCodec.composite(
-            enumCodec(Shape.values()), BlueprintSettings::shape,
-            ByteBufCodecs.VAR_INT, BlueprintSettings::width,
-            ByteBufCodecs.VAR_INT, BlueprintSettings::length,
-            enumCodec(Floor.values()), BlueprintSettings::floor,
-            ByteBufCodecs.VAR_INT, BlueprintSettings::wallHeight,
-            Extras.CODEC, s -> new Extras(s.door, s.roof, s.foundation, s.pick, s.storeys, s.helper),
-            (shape, width, length, floor, wallHeight, extras) -> new BlueprintSettings(shape, width, length, floor,
-                    wallHeight, extras.door(), extras.roof(), extras.foundation(), extras.pick(), extras.storeys(), extras.helper()));
 
     /** Clamps every value to the server limits, so a modified client cannot ask for a 10 000-block wall. */
     public BlueprintSettings clamped() {

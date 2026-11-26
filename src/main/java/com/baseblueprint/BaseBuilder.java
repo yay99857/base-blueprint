@@ -6,6 +6,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -18,13 +19,14 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.EventHooks;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.ForgeEventFactory;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -90,8 +92,8 @@ public final class BaseBuilder {
         if (player.getOffhandItem().getItem() instanceof BlockItem item && isValidMaterial(item.getBlock())) {
             return new Materials(item.getBlock(), item.getBlock());
         }
-        Block floor = blueprint.get(ModComponents.MATERIAL.get());
-        Block walls = blueprint.get(ModComponents.WALL_MATERIAL.get());
+        Block floor = ModComponents.getMaterial(blueprint);
+        Block walls = ModComponents.getWallMaterial(blueprint);
         floor = isValidMaterial(floor) ? floor : null;
         walls = isValidMaterial(walls) ? walls : floor;
         return new Materials(floor, walls);
@@ -104,7 +106,7 @@ public final class BaseBuilder {
     }
 
     public static BlueprintSettings settings(ItemStack blueprint) {
-        return blueprint.getOrDefault(ModComponents.SETTINGS.get(), BlueprintSettings.DEFAULT);
+        return ModComponents.getSettings(blueprint);
     }
 
     /** The side the door goes on: the one facing the player. */
@@ -178,7 +180,7 @@ public final class BaseBuilder {
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack stack = inv.getItem(i);
             if (stack.isEmpty() || stack.is(item)) continue;
-            IItemHandler handler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+            IItemHandler handler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve().orElse(null);
             if (handler != null) out.add(handler);
         }
         return out;
@@ -198,7 +200,9 @@ public final class BaseBuilder {
                 LevelChunk chunk = level.getChunk(cx, cz);
                 for (BlockPos pos : List.copyOf(chunk.getBlockEntities().keySet())) {
                     if (!pos.closerThan(center, radius + 0.5) || !level.mayInteract(player, pos)) continue;
-                    IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+                    BlockEntity be = chunk.getBlockEntities().get(pos);
+                    if (be == null) continue;
+                    IItemHandler handler = be.getCapability(ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
                     if (handler != null) out.add(handler);
                 }
             }
@@ -303,8 +307,8 @@ public final class BaseBuilder {
             BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, p.pos());
             if (!level.setBlock(p.pos(), p.block().defaultBlockState(), Block.UPDATE_ALL)) continue;
             // Lets claim and protection mods refuse single blocks; refused ones are put back and not charged.
-            if (EventHooks.onBlockPlace(player, snapshot, Direction.UP)) {
-                snapshot.restore(Block.UPDATE_ALL);
+            if (ForgeEventFactory.onBlockPlace(player, snapshot, Direction.UP)) {
+                snapshot.restore(true, false);
                 continue;
             }
             placed.add(new UndoHistory.Placed(p.pos(), p.block()));
@@ -338,14 +342,13 @@ public final class BaseBuilder {
 
     /** Each base built uses one of the blueprint's uses ({@link BaseBlueprint#USES}); free in creative. */
     static void wear(Player player, ItemStack blueprint) {
-        if (player.isCreative() || !blueprint.isDamageableItem()
-                || !(player.level() instanceof net.minecraft.server.level.ServerLevel server)) return;
+        if (player.isCreative() || !blueprint.isDamageableItem() || player.level().isClientSide) return;
         if (player.getMainHandItem() == blueprint) {
-            blueprint.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+            blueprint.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(InteractionHand.MAIN_HAND));
         } else if (player.getOffhandItem() == blueprint) {
-            blueprint.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.OFFHAND);
+            blueprint.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(InteractionHand.OFF_HAND));
         } else {
-            blueprint.hurtAndBreak(1, server, player, item -> { });
+            blueprint.hurtAndBreak(1, player, p -> { });
         }
     }
 
@@ -401,7 +404,7 @@ public final class BaseBuilder {
                 Item item = block.asItem();
                 int left = n;
                 while (left > 0) {
-                    int stack = Math.min(left, item.getDefaultMaxStackSize());
+                    int stack = Math.min(left, item.getMaxStackSize());
                     player.getInventory().placeItemBackInInventory(new ItemStack(item, stack));
                     left -= stack;
                 }

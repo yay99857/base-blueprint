@@ -4,14 +4,20 @@ import com.baseblueprint.network.UpdateSettingsPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+import java.util.Optional;
 
 @Mod(BaseBlueprint.MOD_ID)
 public class BaseBlueprint {
@@ -20,13 +26,17 @@ public class BaseBlueprint {
     /** Bases one blueprint builds before it wears out (repair with paper in an anvil). */
     public static final int USES = 8;
 
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
-    public static final DeferredItem<BlueprintItem> BLUEPRINT =
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MOD_ID);
+    public static final RegistryObject<BlueprintItem> BLUEPRINT =
             ITEMS.register("base_blueprint", () -> new BlueprintItem(new Item.Properties().durability(USES)));
 
-    public BaseBlueprint(IEventBus modBus, ModContainer container) {
-        container.registerConfig(ModConfig.Type.SERVER, BlueprintConfig.SPEC);
-        ModComponents.COMPONENTS.register(modBus);
+    private static final String PROTOCOL = "1";
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(id("main"), () -> PROTOCOL,
+            PROTOCOL::equals, PROTOCOL::equals);
+
+    public BaseBlueprint() {
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, BlueprintConfig.SPEC);
         ITEMS.register(modBus);
 
         modBus.addListener((BuildCreativeModeTabContentsEvent event) -> {
@@ -34,13 +44,12 @@ public class BaseBlueprint {
                 event.accept(BLUEPRINT.get());
             }
         });
-        modBus.addListener((RegisterPayloadHandlersEvent event) -> event.registrar("1")
-                .playToServer(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.STREAM_CODEC, UpdateSettingsPayload::handle));
 
+        CHANNEL.registerMessage(0, UpdateSettingsPayload.class, UpdateSettingsPayload::write,
+                UpdateSettingsPayload::read, UpdateSettingsPayload::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+        return new ResourceLocation(MOD_ID, path);
     }
-
 }
